@@ -1,6 +1,4 @@
-#![allow(clippy::float_cmp)]
-
-use js_sys::{ArrayBuffer, JsString, Object, Uint8Array};
+use js_sys::{ArrayBuffer, JsString, Number, Object, Uint8Array};
 use serde::{de, forward_to_deserialize_any, serde_if_integer128};
 use wasm_bindgen::{JsCast, JsValue};
 
@@ -177,20 +175,15 @@ impl Deserializer {
 
         Err(de::Error::invalid_type(unexpected, &visitor))
     }
-}
 
-macro_rules! deserialize_int_from_float {
-    ($deserialize:ident: $ty:ty => $name:ident) => {
-        fn $deserialize<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
-            if let Some(v) = self.value.as_f64() {
-                let converted = v as $ty;
-                if converted as f64 == v {
-                    return visitor.$name(converted);
-                }
+    fn as_safe_integer(&self) -> Option<i64> {
+        if let Some(v) = self.value.as_f64() {
+            if Number::is_safe_integer(&self.value) {
+                return Some(v as i64);
             }
-            self.invalid_type(visitor)
         }
-    };
+        None
+    }
 }
 
 impl<'de> de::Deserializer<'de> for Deserializer {
@@ -237,6 +230,12 @@ impl<'de> de::Deserializer<'de> for Deserializer {
         self.deserialize_i64(visitor)
     }
 
+    serde_if_integer128! {
+        fn deserialize_i128<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+            self.deserialize_i64(visitor)
+        }
+    }
+
     // Same as above, but for `i64`.
 
     fn deserialize_u8<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
@@ -251,15 +250,26 @@ impl<'de> de::Deserializer<'de> for Deserializer {
         self.deserialize_u64(visitor)
     }
 
+    serde_if_integer128! {
+        fn deserialize_u128<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+            self.deserialize_u64(visitor)
+        }
+    }
+
     // Define real `i64` / `u64` deserializers that try to cast from `f64`.
 
-    deserialize_int_from_float!(deserialize_i64: i64 => visit_i64);
-    deserialize_int_from_float!(deserialize_u64: u64 => visit_u64);
+    fn deserialize_i64<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+        match self.as_safe_integer() {
+            Some(v) => visitor.visit_i64(v),
+            None => self.invalid_type(visitor),
+        }
+    }
 
-    // Same for 128-bit integers, but no forwarding because their conversions are more expensive.
-    serde_if_integer128! {
-        deserialize_int_from_float!(deserialize_i128: i128 => visit_i128);
-        deserialize_int_from_float!(deserialize_u128: u128 => visit_u128);
+    fn deserialize_u64<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+        match self.as_safe_integer() {
+            Some(v) => visitor.visit_u64(v as _),
+            None => self.invalid_type(visitor),
+        }
     }
 
     /// Converts a JavaScript string to a Rust char.
