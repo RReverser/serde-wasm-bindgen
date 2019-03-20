@@ -24,3 +24,7 @@ fn convert_error(err: JsValue) -> Error {
 pub fn from_value<T: serde::de::DeserializeOwned>(value: JsValue) -> Result<T> {
     T::deserialize(Deserializer::from(value))
 }
+
+pub fn to_value<T: serde::ser::Serialize>(value: &T) -> Result<JsValue> {
+    value.serialize(&Serializer::new())
+}
