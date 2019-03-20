@@ -20,6 +20,6 @@ fn convert_error(err: JsValue) -> Error {
     ))
 }
 
-pub fn from_value<T: serde::de::DeserializeOwned>(value: JsValue) -> Result<T, de::Error> {
+pub fn from_value<T: serde::de::DeserializeOwned>(value: JsValue) -> Result<T, Error> {
     T::deserialize(Deserializer::from(value))
 }
