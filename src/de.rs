@@ -259,8 +259,8 @@ impl<'de> de::Deserializer<'de> for Deserializer {
 
     fn deserialize_u64<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
         match self.as_safe_integer() {
-            Some(v) => visitor.visit_u64(v as _),
-            None => self.invalid_type(visitor),
+            Some(v) if v >= 0 => visitor.visit_u64(v as _),
+            _ => self.invalid_type(visitor),
         }
     }
 
