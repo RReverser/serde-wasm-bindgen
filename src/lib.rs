@@ -11,6 +11,7 @@ pub use de::Deserializer;
 pub use ser::Serializer;
 
 pub use serde::de::value::Error;
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// Stringifies a JS error into a [`serde::de::Error::custom`].
 #[cold]
@@ -20,6 +21,6 @@ fn convert_error(err: JsValue) -> Error {
     ))
 }
 
-pub fn from_value<T: serde::de::DeserializeOwned>(value: JsValue) -> Result<T, Error> {
+pub fn from_value<T: serde::de::DeserializeOwned>(value: JsValue) -> Result<T> {
     T::deserialize(Deserializer::from(value))
 }

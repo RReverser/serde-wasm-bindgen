@@ -2,7 +2,7 @@ use js_sys::{ArrayBuffer, JsString, Number, Object, Uint8Array};
 use serde::{de, forward_to_deserialize_any, serde_if_integer128};
 use wasm_bindgen::{JsCast, JsValue};
 
-use super::{convert_error, Error};
+use super::{convert_error, Error, Result};
 
 /// Provides [`de::SeqAccess`] from any JS iterator.
 struct SeqAccess {
@@ -15,7 +15,7 @@ impl<'de> de::SeqAccess<'de> for SeqAccess {
     fn next_element_seed<T: de::DeserializeSeed<'de>>(
         &mut self,
         seed: T,
-    ) -> Result<Option<T::Value>, Self::Error> {
+    ) -> Result<Option<T::Value>> {
         match self.iter.next() {
             Some(Ok(value)) => Ok(Some(seed.deserialize(Deserializer::from(value))?)),
             Some(Err(err)) => Err(convert_error(err)),
@@ -33,10 +33,7 @@ struct MapAccess {
 impl<'de> de::MapAccess<'de> for MapAccess {
     type Error = Error;
 
-    fn next_key_seed<K: de::DeserializeSeed<'de>>(
-        &mut self,
-        seed: K,
-    ) -> Result<Option<K::Value>, Self::Error> {
+    fn next_key_seed<K: de::DeserializeSeed<'de>>(&mut self, seed: K) -> Result<Option<K::Value>> {
         match self.iter.next() {
             Some(Ok(pair)) => {
                 debug_assert!(self.next_value.is_none());
@@ -49,10 +46,7 @@ impl<'de> de::MapAccess<'de> for MapAccess {
         }
     }
 
-    fn next_value_seed<V: de::DeserializeSeed<'de>>(
-        &mut self,
-        seed: V,
-    ) -> Result<V::Value, Self::Error> {
+    fn next_value_seed<V: de::DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value> {
         seed.deserialize(self.next_value.take().unwrap())
     }
 }
@@ -70,7 +64,7 @@ impl<'de> de::EnumAccess<'de> for EnumAccess {
     fn variant_seed<V: de::DeserializeSeed<'de>>(
         self,
         seed: V,
-    ) -> Result<(V::Value, Self::Variant), Self::Error> {
+    ) -> Result<(V::Value, Self::Variant)> {
         Ok((seed.deserialize(self.tag)?, self.payload))
     }
 }
@@ -87,7 +81,7 @@ impl From<JsValue> for Deserializer {
 }
 
 /// Destructures a JS `[key, value]` pair into a tuple of [`Deserializer`]s.
-fn convert_pair(pair: JsValue) -> Result<(Deserializer, Deserializer), Error> {
+fn convert_pair(pair: JsValue) -> Result<(Deserializer, Deserializer)> {
     Ok((
         js_sys::Reflect::get_u32(&pair, 0)
             .map(Deserializer::from)
@@ -144,7 +138,7 @@ impl Deserializer {
     }
 
     #[cold]
-    fn invalid_type<'de, V: de::Visitor<'de>>(&self, visitor: V) -> Result<V::Value, Error> {
+    fn invalid_type<'de, V: de::Visitor<'de>>(&self, visitor: V) -> Result<V::Value> {
         let string;
         let bytes;
 
@@ -181,7 +175,7 @@ impl Deserializer {
 impl<'de> de::Deserializer<'de> for Deserializer {
     type Error = Error;
 
-    fn deserialize_any<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+    fn deserialize_any<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         if self.is_nullish() {
             // Ideally we would only treat `undefined` as `()` / `None` which would be semantically closer
             // to JS definitions, but, unfortunately, WebIDL generates missing values as `null`
@@ -210,54 +204,54 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     // Serde happily converts any integer to any integer (with checks), so let's forward all of
     // these to 64-bit methods to save some space in the generated WASM.
 
-    fn deserialize_i8<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+    fn deserialize_i8<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         self.deserialize_i64(visitor)
     }
 
-    fn deserialize_i16<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+    fn deserialize_i16<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         self.deserialize_i64(visitor)
     }
 
-    fn deserialize_i32<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+    fn deserialize_i32<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         self.deserialize_i64(visitor)
     }
 
     serde_if_integer128! {
-        fn deserialize_i128<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+        fn deserialize_i128<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
             self.deserialize_i64(visitor)
         }
     }
 
     // Same as above, but for `i64`.
 
-    fn deserialize_u8<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+    fn deserialize_u8<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         self.deserialize_u64(visitor)
     }
 
-    fn deserialize_u16<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+    fn deserialize_u16<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         self.deserialize_u64(visitor)
     }
 
-    fn deserialize_u32<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+    fn deserialize_u32<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         self.deserialize_u64(visitor)
     }
 
     serde_if_integer128! {
-        fn deserialize_u128<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+        fn deserialize_u128<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
             self.deserialize_u64(visitor)
         }
     }
 
     // Define real `i64` / `u64` deserializers that try to cast from `f64`.
 
-    fn deserialize_i64<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+    fn deserialize_i64<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         match self.as_safe_integer() {
             Some(v) => visitor.visit_i64(v),
             None => self.invalid_type(visitor),
         }
     }
 
-    fn deserialize_u64<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+    fn deserialize_u64<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         match self.as_safe_integer() {
             Some(v) if v >= 0 => visitor.visit_u64(v as _),
             _ => self.invalid_type(visitor),
@@ -269,7 +263,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     /// By default we don't perform detection of single chars because it's pretty complicated,
     /// but if we get a hint that they're expected, this methods allows to avoid heap allocations
     /// of an intermediate `String` by directly converting numeric codepoints instead.
-    fn deserialize_char<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+    fn deserialize_char<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         if let Some(s) = self.as_js_string() {
             let maybe_char = match s.length() {
                 1 => {
@@ -297,7 +291,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
 
     // Serde can deserialize `visit_unit` into `None`, but can't deserialize arbitrary value
     // as `Some`, so we need to provide own simple implementation.
-    fn deserialize_option<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+    fn deserialize_option<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         if self.is_nullish() {
             visitor.visit_some(self)
         } else {
@@ -310,7 +304,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
         self,
         _name: &'static str,
         visitor: V,
-    ) -> Result<V::Value, Self::Error> {
+    ) -> Result<V::Value> {
         visitor.visit_newtype_struct(self)
     }
 
@@ -318,7 +312,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     ///  - JS iterable (an object with [`[Symbol.iterator]`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol/iterator)).
     /// Supported outputs:
     ///  - Any Rust sequence from Serde point of view ([`Vec`], [`HashSet`](std::collections::HashSet), etc.)
-    fn deserialize_seq<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+    fn deserialize_seq<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         match js_sys::try_iter(&self.value).map_err(convert_error)? {
             Some(iter) => visitor.visit_seq(SeqAccess { iter }),
             None => self.invalid_type(visitor),
@@ -326,11 +320,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     }
 
     /// Forwards to [`Self::deserialize_seq`](#method.deserialize_seq).
-    fn deserialize_tuple<V: de::Visitor<'de>>(
-        self,
-        _len: usize,
-        visitor: V,
-    ) -> Result<V::Value, Self::Error> {
+    fn deserialize_tuple<V: de::Visitor<'de>>(self, _len: usize, visitor: V) -> Result<V::Value> {
         self.deserialize_seq(visitor)
     }
 
@@ -340,7 +330,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
         _name: &'static str,
         len: usize,
         visitor: V,
-    ) -> Result<V::Value, Self::Error> {
+    ) -> Result<V::Value> {
         self.deserialize_tuple(len, visitor)
     }
 
@@ -350,7 +340,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     /// Supported outputs:
     ///  - A Rust key-value map ([`HashMap`](std::collections::HashMap), [`BTreeMap`](std::collections::BTreeMap), etc.).
     ///  - A typed Rust structure with `#[derive(Deserialize)]`.
-    fn deserialize_map<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+    fn deserialize_map<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         let map = MapAccess {
             iter: match js_sys::try_iter(&self.value).map_err(convert_error)? {
                 Some(iter) => iter,
@@ -370,7 +360,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
         _name: &'static str,
         _fields: &'static [&'static str],
         visitor: V,
-    ) -> Result<V::Value, Self::Error> {
+    ) -> Result<V::Value> {
         self.deserialize_map(visitor)
     }
 
@@ -382,7 +372,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
         _name: &'static str,
         _variants: &'static [&'static str],
         visitor: V,
-    ) -> Result<V::Value, Self::Error> {
+    ) -> Result<V::Value> {
         let access = if self.value.is_string() {
             EnumAccess {
                 tag: self.value.into(),
@@ -403,15 +393,12 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     }
 
     /// Ignores any value without calling to the JS side even to check its type.
-    fn deserialize_ignored_any<V: de::Visitor<'de>>(
-        self,
-        visitor: V,
-    ) -> Result<V::Value, Self::Error> {
+    fn deserialize_ignored_any<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         visitor.visit_unit()
     }
 
     /// We can't take references to JS memory, so forwards to an owned [`Self::deserialize_byte_buf`](#method.deserialize_byte_buf).
-    fn deserialize_bytes<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+    fn deserialize_bytes<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         self.deserialize_byte_buf(visitor)
     }
 
@@ -421,10 +408,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     /// Supported inputs:
     ///  - `ArrayBuffer` - converted to an `Uint8Array` view first.
     ///  - `Uint8Array` - copied to a newly created `Vec<u8>` on the Rust side.
-    fn deserialize_byte_buf<V: de::Visitor<'de>>(
-        self,
-        visitor: V,
-    ) -> Result<V::Value, Self::Error> {
+    fn deserialize_byte_buf<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         if let Some(bytes) = self.as_bytes() {
             visitor.visit_byte_buf(bytes)
         } else {
@@ -440,22 +424,15 @@ impl<'de> de::Deserializer<'de> for Deserializer {
 impl<'de> de::VariantAccess<'de> for Deserializer {
     type Error = Error;
 
-    fn unit_variant(self) -> Result<(), Self::Error> {
+    fn unit_variant(self) -> Result<()> {
         de::Deserialize::deserialize(self)
     }
 
-    fn newtype_variant_seed<T: de::DeserializeSeed<'de>>(
-        self,
-        seed: T,
-    ) -> Result<T::Value, Self::Error> {
+    fn newtype_variant_seed<T: de::DeserializeSeed<'de>>(self, seed: T) -> Result<T::Value> {
         seed.deserialize(self)
     }
 
-    fn tuple_variant<V: de::Visitor<'de>>(
-        self,
-        len: usize,
-        visitor: V,
-    ) -> Result<V::Value, Self::Error> {
+    fn tuple_variant<V: de::Visitor<'de>>(self, len: usize, visitor: V) -> Result<V::Value> {
         de::Deserializer::deserialize_tuple(self, len, visitor)
     }
 
@@ -463,7 +440,7 @@ impl<'de> de::VariantAccess<'de> for Deserializer {
         self,
         fields: &'static [&'static str],
         visitor: V,
-    ) -> Result<V::Value, Self::Error> {
+    ) -> Result<V::Value> {
         de::Deserializer::deserialize_struct(self, "", fields, visitor)
     }
 }
