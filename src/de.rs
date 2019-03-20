@@ -2,7 +2,7 @@ use js_sys::{ArrayBuffer, JsString, Number, Object, Uint8Array};
 use serde::{de, forward_to_deserialize_any, serde_if_integer128};
 use wasm_bindgen::{JsCast, JsValue};
 
-pub use serde::de::value::Error;
+use super::{convert_error, Error};
 
 /// Provides [`de::SeqAccess`] from any JS iterator.
 struct SeqAccess {
@@ -84,14 +84,6 @@ impl From<JsValue> for Deserializer {
     fn from(value: JsValue) -> Self {
         Self { value }
     }
-}
-
-/// Stringifies a JS error into a [`serde::de::Error::custom`].
-#[cold]
-fn convert_error(err: JsValue) -> Error {
-    de::Error::custom(String::from(
-        err.unchecked_into::<js_sys::Object>().to_string(),
-    ))
 }
 
 /// Destructures a JS `[key, value]` pair into a tuple of [`Deserializer`]s.
