@@ -322,7 +322,7 @@ impl<'s> ser::Serializer for &'s Serializer {
         variant: &'static str,
         value: &T,
     ) -> Result {
-        self.serialize_newtype_struct(variant, value)
+        VariantSerializer::new(variant, self.serialize_newtype_struct(variant, value)?).end(Ok)
     }
 
     /// Serialises any Rust iterable into a JS Array.

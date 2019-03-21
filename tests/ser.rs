@@ -17,6 +17,13 @@ where
     test(value, value);
 }
 
+fn test_via_json<T: Serialize>(value: T) {
+    assert_eq!(
+        js_sys::JSON::stringify(&to_value(&value).unwrap()).unwrap(),
+        serde_json::to_string(&value).unwrap(),
+    );
+}
+
 macro_rules! test_unsigned {
     ($ty:ident) => {{
         test_primitive::<$ty>(0 as _);
@@ -46,6 +53,29 @@ macro_rules! test_float {
         });
         test_primitive::<$ty>(std::$ty::INFINITY);
         test_primitive::<$ty>(std::$ty::NEG_INFINITY);
+    }};
+}
+
+macro_rules! test_enum {
+    ($(# $attr:tt)* $name:ident) => {{
+        #[derive(Serialize)]
+        enum $name<A, B> {
+            Unit,
+            Newtype(A),
+            Tuple(A, B),
+            Struct {
+                a: A,
+                b: B,
+            }
+        }
+
+        test_via_json($name::Unit::<(), ()>);
+        test_via_json($name::Newtype::<_, ()>("newtype content"));
+        test_via_json($name::Tuple("tuple content", 42));
+        test_via_json($name::Struct {
+            a: "struct content",
+            b: 42
+        });
     }};
 }
 
@@ -148,4 +178,19 @@ fn options() {
     test(None::<()>, JsValue::UNDEFINED);
     test(Some(Some(())), JsValue::UNDEFINED);
     test(Some(None::<()>), JsValue::UNDEFINED);
+}
+
+#[wasm_bindgen_test]
+fn enums() {
+    test_enum! {
+        ExternallyTagged
+    }
+    test_enum! {
+        #[serde(tag = "tag")]
+        InternallyTagged
+    }
+    test_enum! {
+        #[serde(tag = "tag", content = "content")]
+        AdjacentlyTagged
+    }
 }
