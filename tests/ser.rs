@@ -132,3 +132,20 @@ fn bytes() {
     // Finally, compare that resulting storage with the original.
     assert_eq!(orig_src, dst);
 }
+
+#[wasm_bindgen_test]
+fn options() {
+    test(Some(0_u32), 0_u32);
+    test(Some(32_u32), 32_u32);
+    test(None::<u32>, JsValue::UNDEFINED);
+
+    test(Some(""), "");
+    test(Some("abc"), "abc");
+    test(None::<&str>, JsValue::UNDEFINED);
+
+    // This one is an unfortunate edge case, but not very likely in real world.
+    test(Some(()), JsValue::UNDEFINED);
+    test(None::<()>, JsValue::UNDEFINED);
+    test(Some(Some(())), JsValue::UNDEFINED);
+    test(Some(None::<()>), JsValue::UNDEFINED);
+}
