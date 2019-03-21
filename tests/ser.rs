@@ -1,6 +1,7 @@
 use serde::Serialize;
 use serde_wasm_bindgen::to_value;
-use wasm_bindgen::{JsValue, JsCast};
+use std::collections::{HashMap, HashSet};
+use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_test::*;
 
 fn test<L: Serialize, R: std::fmt::Debug>(lhs: L, rhs: R)
@@ -17,11 +18,15 @@ where
     test(value, value);
 }
 
-fn test_via_json<T: Serialize>(value: T) {
+fn assert_json<R: Serialize>(lhs: JsValue, rhs: R) {
     assert_eq!(
-        js_sys::JSON::stringify(&to_value(&value).unwrap()).unwrap(),
-        serde_json::to_string(&value).unwrap(),
+        js_sys::JSON::stringify(&lhs).unwrap(),
+        serde_json::to_string(&rhs).unwrap(),
     );
+}
+
+fn test_via_json<T: Serialize>(value: T) {
+    assert_json(to_value(&value).unwrap(), value);
 }
 
 macro_rules! test_unsigned {
@@ -63,10 +68,7 @@ macro_rules! test_enum {
             Unit,
             Newtype(A),
             Tuple(A, B),
-            Struct {
-                a: A,
-                b: B,
-            }
+            Struct { a: A, b: B },
         }
 
         test_via_json($name::Unit::<(), ()>);
@@ -74,7 +76,7 @@ macro_rules! test_enum {
         test_via_json($name::Tuple("tuple content", 42));
         test_via_json($name::Struct {
             a: "struct content",
-            b: 42
+            b: 42,
         });
     }};
 }
@@ -224,6 +226,55 @@ fn structs() {
 
     test_via_json(Struct {
         a: "struct content",
-        b: 42
+        b: 42,
     });
+}
+
+#[wasm_bindgen_test]
+fn sequences() {
+    test_via_json([1, 2]);
+    test_via_json(["", "x", "xyz"]);
+    test_via_json::<HashSet<bool>>([false, true].iter().cloned().collect());
+}
+
+#[wasm_bindgen_test]
+fn maps() {
+    #[derive(Serialize, PartialEq, Eq, Hash)]
+    struct Struct<A, B> {
+        a: A,
+        b: B,
+    }
+
+    // Create a Rust HashMap with non-string keys to make sure
+    // that we support real arbitrary maps.
+    let mut src = HashMap::new();
+
+    src.insert(Struct { a: 1, b: "smth" }, Struct { a: 2, b: "SMTH" });
+
+    src.insert(
+        Struct {
+            a: 42,
+            b: "something",
+        },
+        Struct {
+            a: 84,
+            b: "SOMETHING",
+        },
+    );
+
+    // Convert to a JS value
+    let res = to_value(&src).unwrap();
+
+    // Make sure that the result is an ES6 Map.
+    let res = res.dyn_into::<js_sys::Map>().unwrap();
+    assert_eq!(res.size() as usize, src.len());
+
+    // Compare values one by one (it's ok to use JSON for invidivual structs).
+    res.entries()
+        .into_iter()
+        .map(|kv| kv.unwrap())
+        .zip(src)
+        .for_each(|(lhs_kv, rhs_kv)| {
+            assert_json(lhs_kv, rhs_kv);
+        });
 }
