@@ -241,8 +241,9 @@ impl<'s> ser::Serializer for &'s Serializer {
     // TODO: we might want to support `BigInt` here in the future.
     fn serialize_i64(self, v: i64) -> Result {
         const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
+        const MIN_SAFE_INTEGER: i64 = -MAX_SAFE_INTEGER;
 
-        if v.abs() <= MAX_SAFE_INTEGER {
+        if v >= MIN_SAFE_INTEGER && v <= MAX_SAFE_INTEGER {
             self.serialize_f64(v as _)
         } else {
             Err(Error::custom(format_args!(
