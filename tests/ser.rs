@@ -50,7 +50,7 @@ macro_rules! test_float {
 }
 
 #[wasm_bindgen_test]
-fn void() {
+fn unit() {
     test((), JsValue::UNDEFINED);
 }
 
