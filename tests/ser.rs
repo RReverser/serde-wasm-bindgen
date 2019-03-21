@@ -193,4 +193,37 @@ fn enums() {
         #[serde(tag = "tag", content = "content")]
         AdjacentlyTagged
     }
+    test_enum! {
+        #[serde(untagged)]
+        Untagged
+    }
+}
+
+#[wasm_bindgen_test]
+fn structs() {
+    #[derive(Serialize)]
+    struct Unit;
+
+    test(Unit, JsValue::UNDEFINED);
+
+    #[derive(Serialize)]
+    struct Newtype<A>(A);
+
+    test_via_json(Newtype("newtype content"));
+
+    #[derive(Serialize)]
+    struct Tuple<A, B>(A, B);
+
+    test_via_json(Tuple("tuple content", 42));
+
+    #[derive(Serialize)]
+    struct Struct<A, B> {
+        a: A,
+        b: B,
+    }
+
+    test_via_json(Struct {
+        a: "struct content",
+        b: 42
+    });
 }
