@@ -234,6 +234,9 @@ fn structs() {
 fn sequences() {
     test_via_json([1, 2]);
     test_via_json(["", "x", "xyz"]);
+
+    // Sets are currently indistinguishable from other sequences for
+    // Serde serialisers, so this will become an array on the JS side.
     test_via_json::<HashSet<bool>>([false, true].iter().cloned().collect());
 }
 
