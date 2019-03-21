@@ -11,3 +11,4 @@ wasm-bindgen = "^0.2"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.2.39"
+serde_bytes = "0.10.5"

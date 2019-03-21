@@ -1,6 +1,6 @@
 use serde::Serialize;
 use serde_wasm_bindgen::to_value;
-use wasm_bindgen::JsValue;
+use wasm_bindgen::{JsValue, JsCast};
 use wasm_bindgen_test::*;
 
 fn test<L: Serialize, R: std::fmt::Debug>(lhs: L, rhs: R)
@@ -112,4 +112,23 @@ fn chars() {
     test('a', "a");
     test('\0', "\0");
     test('😃', "😃");
+}
+
+#[wasm_bindgen_test]
+fn bytes() {
+    // Create a backing storage.
+    let mut src = [1, 2, 3];
+    // Store the original separately for the mutation test
+    let orig_src = src;
+    // Convert to a JS value
+    let res = to_value(&serde_bytes::Bytes::new(&src)).unwrap();
+    // Modify the original storage to make sure that JS value is a copy.
+    src[0] = 10;
+    // Make sure the JS value is a Uint8Array
+    let res = res.dyn_into::<js_sys::Uint8Array>().unwrap();
+    // Copy it into another Rust storage
+    let mut dst = [0; 3];
+    res.copy_to(&mut dst);
+    // Finally, compare that resulting storage with the original.
+    assert_eq!(orig_src, dst);
 }
