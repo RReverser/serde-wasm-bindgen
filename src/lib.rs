@@ -1,7 +1,3 @@
-extern crate js_sys;
-extern crate serde;
-extern crate wasm_bindgen;
-
 use wasm_bindgen::{JsCast, JsValue};
 
 pub mod de;

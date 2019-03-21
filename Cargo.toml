@@ -2,8 +2,12 @@
 name = "serde-wasm-bindgen"
 version = "0.1.0"
 authors = ["Ingvar Stepanyan <me@rreverser.com>"]
+edition = "2018"
 
 [dependencies]
 serde = "^1.0"
 js-sys = "^0.3"
 wasm-bindgen = "^0.2"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.2.39"
