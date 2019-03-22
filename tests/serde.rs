@@ -31,7 +31,6 @@ fn test_via_json<T: Serialize>(value: T) {
 
 macro_rules! test_unsigned {
     ($ty:ident) => {{
-        test_primitive::<$ty>(0 as _);
         test_primitive::<$ty>(42 as _);
         test_primitive::<$ty>(std::$ty::MIN);
         test_primitive::<$ty>(std::$ty::MAX);
@@ -40,6 +39,7 @@ macro_rules! test_unsigned {
 
 macro_rules! test_signed {
     ($ty:ident) => {{
+        test_primitive::<$ty>(0 as _);
         test_primitive::<$ty>(-42 as _);
         test_unsigned!($ty);
     }};
