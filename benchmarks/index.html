@@ -1,0 +1,24 @@
+<script src="https://unpkg.com/text-encoding/lib/encoding.js"></script>
+<script src="https://unpkg.com/lodash"></script>
+<script src="https://unpkg.com/benchmark"></script>
+<script src="pkg/serde_wasm_bindgen_benches.js"></script>
+<pre id="output"></pre>
+<script>
+delete WebAssembly.instantiateStreaming;
+
+const { Suite } = Benchmark;
+
+Promise.all([
+	fetch('./canada.json').then(res => res.json()),
+	wasm_bindgen('pkg/serde_wasm_bindgen_benches_bg.wasm')
+]).then(([canada]) => {
+	wasm_bindgen.init_console();
+
+	new Suite('canada')
+	.add('serde-json', () => wasm_bindgen.parse_canada_with_serde_json(canada))
+	.add('serde-wasm-bindgen', () => wasm_bindgen.parse_canada_with_serde_wasm_bindgen(canada))
+	.on('error', event => output.textContent = target.error)
+	.on('cycle', event => output.textContent += event.target.toString() + '\n')
+	.run();
+}).catch(console.error);
+</script>
