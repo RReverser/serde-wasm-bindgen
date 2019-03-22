@@ -4,14 +4,12 @@ use std::collections::{HashMap, HashSet};
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_test::*;
 
-fn test<L: Serialize, R: std::fmt::Debug>(lhs: L, rhs: R)
-where
-    JsValue: PartialEq<R>,
-{
+fn test<L: Serialize, R: Into<JsValue>>(lhs: L, rhs: R) {
+    let rhs = rhs.into();
     assert_eq!(to_value(&lhs).unwrap(), rhs);
 }
 
-fn test_primitive<T: Copy + Serialize + std::fmt::Debug>(value: T)
+fn test_primitive<T: Copy + Serialize + Into<JsValue>>(value: T)
 where
     JsValue: PartialEq<T>,
 {
