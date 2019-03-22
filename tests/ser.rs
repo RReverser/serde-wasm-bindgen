@@ -234,6 +234,7 @@ fn structs() {
 fn sequences() {
     test_via_json([1, 2]);
     test_via_json(["", "x", "xyz"]);
+    test_via_json((100, "xyz", true));
 
     // Sets are currently indistinguishable from other sequences for
     // Serde serialisers, so this will become an array on the JS side.
