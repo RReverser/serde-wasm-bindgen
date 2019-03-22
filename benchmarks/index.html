@@ -5,28 +5,50 @@
 <input type="button" id="run" disabled value="Run" />
 <pre id="output"></pre>
 <script>
-delete WebAssembly.instantiateStreaming;
+	delete WebAssembly.instantiateStreaming;
 
-const { Suite } = Benchmark;
+	const benches = wasm_bindgen('pkg/serde_wasm_bindgen_benches_bg.wasm').then(() => {
+		wasm_bindgen.init_console();
+		return wasm_bindgen;
+	});
 
-Promise.all([
-	fetch('./canada.json').then(res => res.json()),
-	wasm_bindgen('pkg/serde_wasm_bindgen_benches_bg.wasm')
-]).then(([canada]) => {
-	wasm_bindgen.init_console();
+	const inputs = ['canada', 'citm_catalog', 'twitter'].map(async input => {
+		const res = await fetch(`${input}.json`);
+		return {
+			input,
+			json: await res.json()
+		};
+	});
 
-	run.onclick = () => {
-		output.textContent = 'Running...\n';
+	Promise.all([
+		benches,
+		Promise.all(inputs)
+	]).then(([benches, inputs]) => {
+		let suite = new Benchmark.Suite();
 
-		new Suite('canada')
-		.add('serde-json', () => wasm_bindgen.parse_canada_with_serde_json(canada))
-		.add('serde-wasm-bindgen', () => wasm_bindgen.parse_canada_with_serde_wasm_bindgen(canada))
-		.on('error', event => output.textContent = target.error)
-		.on('cycle', event => output.textContent += event.target.toString() + '\n')
-		.on('complete', event => output.textContent += 'Done!')
-		.run({ async: true });
-	};
+		for (let { input, json } of inputs) {
+			for (const lib of ['serde_json', 'serde_wasm_bindgen']) {
+				const func = benches[`parse_${input}_with_${lib}`];
+				suite.add(`${input} x ${lib}`, () => func(json));
+			}
+		}
 
-	run.disabled = false;
-}).catch(console.error);
+		run.onclick = () => {
+			output.textContent = 'Running...\n';
+			run.disabled = true;
+
+			suite.on('error', event => output.textContent = target.error)
+			.on('cycle', event => output.textContent += event.target.toString() + '\n')
+			.on('complete', event => {
+				output.textContent += 'Done!';
+				run.disabled = false;
+			})
+			.run({ async: true });
+		};
+
+		run.disabled = false;
+	}).catch(err => {
+		console.error(err);
+		output.textContent = err;
+	});
 </script>
