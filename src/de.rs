@@ -1,5 +1,5 @@
 use js_sys::{ArrayBuffer, JsString, Number, Object, Uint8Array};
-use serde::{de, forward_to_deserialize_any, serde_if_integer128};
+use serde::{de, serde_if_integer128};
 use wasm_bindgen::{JsCast, JsValue};
 
 use super::{convert_error, Error, Result};
@@ -192,13 +192,57 @@ impl<'de> de::Deserializer<'de> for Deserializer {
         }
     }
 
-    forward_to_deserialize_any! {
-        unit unit_struct
-        bool
-        // Serde happily converts `f64` to `f32` (with checks), so we can
-        // forward both despite not handling the latter separately.
-        f32 f64
-        identifier str string
+    fn deserialize_unit<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        if self.is_nullish() {
+            visitor.visit_unit()
+        } else {
+            self.invalid_type(visitor)
+        }
+    }
+
+    fn deserialize_unit_struct<V: de::Visitor<'de>>(
+        self,
+        _name: &'static str,
+        visitor: V,
+    ) -> Result<V::Value> {
+        self.deserialize_unit(visitor)
+    }
+
+    fn deserialize_bool<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        if let Some(v) = self.value.as_bool() {
+            visitor.visit_bool(v)
+        } else {
+            self.invalid_type(visitor)
+        }
+    }
+
+    // Serde happily converts `f64` to `f32` (with checks), so we can forward.
+    fn deserialize_f32<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        self.deserialize_f64(visitor)
+    }
+
+    fn deserialize_f64<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        if let Some(v) = self.value.as_f64() {
+            visitor.visit_f64(v)
+        } else {
+            self.invalid_type(visitor)
+        }
+    }
+
+    fn deserialize_identifier<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        self.deserialize_str(visitor)
+    }
+
+    fn deserialize_str<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        self.deserialize_string(visitor)
+    }
+
+    fn deserialize_string<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        if let Some(v) = self.value.as_string() {
+            visitor.visit_string(v)
+        } else {
+            self.invalid_type(visitor)
+        }
     }
 
     // Serde happily converts any integer to any integer (with checks), so let's forward all of
