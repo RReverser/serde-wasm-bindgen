@@ -2,6 +2,7 @@
 <script src="https://unpkg.com/lodash"></script>
 <script src="https://unpkg.com/benchmark"></script>
 <script src="pkg/serde_wasm_bindgen_benches.js"></script>
+<input type="button" id="run" disabled value="Run" />
 <pre id="output"></pre>
 <script>
 delete WebAssembly.instantiateStreaming;
@@ -14,11 +15,18 @@ Promise.all([
 ]).then(([canada]) => {
 	wasm_bindgen.init_console();
 
-	new Suite('canada')
-	.add('serde-json', () => wasm_bindgen.parse_canada_with_serde_json(canada))
-	.add('serde-wasm-bindgen', () => wasm_bindgen.parse_canada_with_serde_wasm_bindgen(canada))
-	.on('error', event => output.textContent = target.error)
-	.on('cycle', event => output.textContent += event.target.toString() + '\n')
-	.run();
+	run.onclick = () => {
+		output.textContent = 'Running...\n';
+
+		new Suite('canada')
+		.add('serde-json', () => wasm_bindgen.parse_canada_with_serde_json(canada))
+		.add('serde-wasm-bindgen', () => wasm_bindgen.parse_canada_with_serde_wasm_bindgen(canada))
+		.on('error', event => output.textContent = target.error)
+		.on('cycle', event => output.textContent += event.target.toString() + '\n')
+		.on('complete', event => output.textContent += 'Done!')
+		.run({ async: true });
+	};
+
+	run.disabled = false;
 }).catch(console.error);
 </script>
