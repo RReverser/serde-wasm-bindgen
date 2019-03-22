@@ -3,11 +3,20 @@
 const { Suite } = require('benchmark');
 const benches = require('./pkg');
 
-const canada = require('./canada.json');
+benches.init_console();
 
-new Suite('canada')
-.add('serde-json', () => benches.parse_canada_with_serde_json(canada))
-.add('serde-wasm-bindgen', () => benches.parse_canada_with_serde_wasm_bindgen(canada))
+let suite = new Suite();
+
+for (let input of ['canada', 'citm_catalog', 'twitter']) {
+	const json = require(`./${input}.json`);
+
+	for (const lib of ['serde_json', 'serde_wasm_bindgen']) {
+		const func = benches[`parse_${input}_with_${lib}`];
+		suite.add(`${input} x ${lib}`, () => func(json));
+	}
+}
+
+suite
 .on('error', event => console.error(event.target.error))
 .on('cycle', event => console.log(event.target.toString()))
 .run();
