@@ -336,7 +336,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     // Serde can deserialize `visit_unit` into `None`, but can't deserialize arbitrary value
     // as `Some`, so we need to provide own simple implementation.
     fn deserialize_option<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        if self.is_nullish() {
+        if !self.is_nullish() {
             visitor.visit_some(self)
         } else {
             visitor.visit_none()

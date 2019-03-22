@@ -1,17 +1,25 @@
-use serde::Serialize;
-use serde_wasm_bindgen::to_value;
+use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
+use serde_wasm_bindgen::{from_value, to_value};
 use std::collections::{HashMap, HashSet};
+use std::fmt::Debug;
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_test::*;
 
-fn test<L: Serialize, R: Into<JsValue>>(lhs: L, rhs: R) {
-    let rhs = rhs.into();
-    assert_eq!(to_value(&lhs).unwrap(), rhs);
+fn test<L, R>(lhs: L, rhs: R)
+where
+    L: Serialize + DeserializeOwned + PartialEq + Debug,
+    R: Into<JsValue>,
+{
+    let lhs_value = to_value(&lhs).unwrap();
+    assert_eq!(lhs_value, rhs.into(), "to_value from {:?}", lhs);
+    let restored_lhs = from_value(lhs_value.clone()).unwrap();
+    assert_eq!(lhs, restored_lhs, "from_value from {:?}", lhs_value);
 }
 
-fn test_primitive<T: Copy + Serialize + Into<JsValue>>(value: T)
+fn test_primitive<T>(value: T)
 where
-    JsValue: PartialEq<T>,
+    T: Copy + Serialize + Into<JsValue> + DeserializeOwned + PartialEq + Debug,
 {
     test(value, value);
 }
@@ -61,7 +69,7 @@ macro_rules! test_float {
 
 macro_rules! test_enum {
     ($(# $attr:tt)* $name:ident) => {{
-        #[derive(Serialize)]
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
         enum $name<A, B> {
             Unit,
             Newtype(A),
@@ -131,10 +139,17 @@ fn numbers() {
 
 #[wasm_bindgen_test]
 fn strings() {
-    test_primitive("");
-    test_primitive("abc");
-    test_primitive("\0");
-    test_primitive("😃");
+    fn test_str(s: &'static str) {
+        let value = to_value(&s).unwrap();
+        assert_eq!(value, s);
+        let restored: String = from_value(value).unwrap();
+        assert_eq!(s, restored);
+    }
+
+    test_str("");
+    test_str("abc");
+    test_str("\0");
+    test_str("😃");
 }
 
 #[wasm_bindgen_test]
@@ -169,15 +184,16 @@ fn options() {
     test(Some(32_u32), 32_u32);
     test(None::<u32>, JsValue::UNDEFINED);
 
-    test(Some(""), "");
-    test(Some("abc"), "abc");
-    test(None::<&str>, JsValue::UNDEFINED);
+    test(Some("".to_string()), "");
+    test(Some("abc".to_string()), "abc");
+    test(None::<String>, JsValue::UNDEFINED);
 
-    // This one is an unfortunate edge case, but not very likely in real world.
-    test(Some(()), JsValue::UNDEFINED);
-    test(None::<()>, JsValue::UNDEFINED);
-    test(Some(Some(())), JsValue::UNDEFINED);
-    test(Some(None::<()>), JsValue::UNDEFINED);
+    // This one is an unfortunate edge case that won't roundtrip,
+    // but it's pretty unlikely in real-world code.
+    assert_eq!(to_value(&Some(())).unwrap(), JsValue::UNDEFINED);
+    assert_eq!(to_value(&None::<()>).unwrap(), JsValue::UNDEFINED);
+    assert_eq!(to_value(&Some(Some(()))).unwrap(), JsValue::UNDEFINED);
+    assert_eq!(to_value(&Some(None::<()>)).unwrap(), JsValue::UNDEFINED);
 }
 
 #[wasm_bindgen_test]
@@ -201,22 +217,22 @@ fn enums() {
 
 #[wasm_bindgen_test]
 fn structs() {
-    #[derive(Serialize)]
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
     struct Unit;
 
     test(Unit, JsValue::UNDEFINED);
 
-    #[derive(Serialize)]
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
     struct Newtype<A>(A);
 
     test_via_json(Newtype("newtype content"));
 
-    #[derive(Serialize)]
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
     struct Tuple<A, B>(A, B);
 
     test_via_json(Tuple("tuple content", 42));
 
-    #[derive(Serialize)]
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
     struct Struct<A, B> {
         a: A,
         b: B,
