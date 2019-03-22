@@ -357,10 +357,17 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     /// Supported outputs:
     ///  - Any Rust sequence from Serde point of view ([`Vec`], [`HashSet`](std::collections::HashSet), etc.)
     fn deserialize_seq<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        match js_sys::try_iter(&self.value).map_err(convert_error)? {
-            Some(iter) => visitor.visit_seq(SeqAccess { iter }),
-            None => self.invalid_type(visitor),
-        }
+        let iter = if js_sys::Array::is_array(&self.value) {
+            self.value
+                .unchecked_into::<js_sys::Array>()
+                .values()
+                .into_iter()
+        } else if let Some(iter) = js_sys::try_iter(&self.value).map_err(convert_error)? {
+            iter
+        } else {
+            return self.invalid_type(visitor);
+        };
+        visitor.visit_seq(SeqAccess { iter })
     }
 
     /// Forwards to [`Self::deserialize_seq`](#method.deserialize_seq).
