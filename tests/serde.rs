@@ -174,16 +174,21 @@ fn bytes() {
     // Store the original separately for the mutation test
     let orig_src = src;
     // Convert to a JS value
-    let res = to_value(&serde_bytes::Bytes::new(&src)).unwrap();
+    let value = to_value(&serde_bytes::Bytes::new(&src)).unwrap();
     // Modify the original storage to make sure that JS value is a copy.
     src[0] = 10;
+
     // Make sure the JS value is a Uint8Array
-    let res = res.dyn_into::<js_sys::Uint8Array>().unwrap();
+    let res = value.dyn_ref::<js_sys::Uint8Array>().unwrap();
     // Copy it into another Rust storage
     let mut dst = [0; 3];
     res.copy_to(&mut dst);
     // Finally, compare that resulting storage with the original.
     assert_eq!(orig_src, dst);
+
+    // Now, try to deserialize back.
+    let deserialized: serde_bytes::ByteBuf = from_value(value).unwrap();
+    assert_eq!(deserialized.as_ref(), orig_src);
 }
 
 #[wasm_bindgen_test]
