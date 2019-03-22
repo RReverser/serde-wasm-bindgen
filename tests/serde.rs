@@ -24,14 +24,22 @@ where
     test(value, value);
 }
 
-fn assert_json<R: Serialize>(lhs: JsValue, rhs: R) {
+fn assert_json<R>(lhs_value: JsValue, rhs: R)
+where
+    R: Serialize + DeserializeOwned + PartialEq + Debug,
+{
     assert_eq!(
-        js_sys::JSON::stringify(&lhs).unwrap(),
+        js_sys::JSON::stringify(&lhs_value).unwrap(),
         serde_json::to_string(&rhs).unwrap(),
     );
+    let restored_lhs: R = from_value(lhs_value.clone()).unwrap();
+    assert_eq!(restored_lhs, rhs, "from_value from {:?}", lhs_value);
 }
 
-fn test_via_json<T: Serialize>(value: T) {
+fn test_via_json<T>(value: T)
+where
+    T: Serialize + DeserializeOwned + PartialEq + Debug,
+{
     assert_json(to_value(&value).unwrap(), value);
 }
 
@@ -78,10 +86,10 @@ macro_rules! test_enum {
         }
 
         test_via_json($name::Unit::<(), ()>);
-        test_via_json($name::Newtype::<_, ()>("newtype content"));
-        test_via_json($name::Tuple("tuple content", 42));
+        test_via_json($name::Newtype::<_, ()>("newtype content".to_string()));
+        test_via_json($name::Tuple("tuple content".to_string(), 42));
         test_via_json($name::Struct {
-            a: "struct content",
+            a: "struct content".to_string(),
             b: 42,
         });
     }};
@@ -225,12 +233,12 @@ fn structs() {
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
     struct Newtype<A>(A);
 
-    test_via_json(Newtype("newtype content"));
+    test_via_json(Newtype("newtype content".to_string()));
 
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
     struct Tuple<A, B>(A, B);
 
-    test_via_json(Tuple("tuple content", 42));
+    test_via_json(Tuple("tuple content".to_string(), 42));
 
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
     struct Struct<A, B> {
@@ -239,7 +247,7 @@ fn structs() {
     }
 
     test_via_json(Struct {
-        a: "struct content",
+        a: "struct content".to_string(),
         b: 42,
     });
 }
@@ -247,8 +255,8 @@ fn structs() {
 #[wasm_bindgen_test]
 fn sequences() {
     test_via_json([1, 2]);
-    test_via_json(["", "x", "xyz"]);
-    test_via_json((100, "xyz", true));
+    test_via_json(["".to_string(), "x".to_string(), "xyz".to_string()]);
+    test_via_json((100, "xyz".to_string(), true));
 
     // Sets are currently indistinguishable from other sequences for
     // Serde serialisers, so this will become an array on the JS side.
@@ -257,7 +265,7 @@ fn sequences() {
 
 #[wasm_bindgen_test]
 fn maps() {
-    #[derive(Serialize, PartialEq, Eq, Hash)]
+    #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
     struct Struct<A, B> {
         a: A,
         b: B,
@@ -267,16 +275,25 @@ fn maps() {
     // that we support real arbitrary maps.
     let mut src = HashMap::new();
 
-    src.insert(Struct { a: 1, b: "smth" }, Struct { a: 2, b: "SMTH" });
+    src.insert(
+        Struct {
+            a: 1,
+            b: "smth".to_string(),
+        },
+        Struct {
+            a: 2,
+            b: "SMTH".to_string(),
+        },
+    );
 
     src.insert(
         Struct {
             a: 42,
-            b: "something",
+            b: "something".to_string(),
         },
         Struct {
             a: 84,
-            b: "SOMETHING",
+            b: "SOMETHING".to_string(),
         },
     );
 
