@@ -2,7 +2,7 @@ use js_sys::{Array, JsString, Map, Object, Reflect, Uint8Array};
 use serde::ser::{self, Error as _, Serialize};
 use wasm_bindgen::JsValue;
 
-use super::{convert_error, Error};
+use super::{convert_error, Error, static_str_to_js};
 
 type Result<T = JsValue> = super::Result<T>;
 
@@ -21,7 +21,7 @@ impl<S> VariantSerializer<S> {
     fn end(self, inner: impl FnOnce(S) -> Result) -> Result {
         let value = inner(self.inner)?;
         let obj = JsValue::from(Object::new());
-        Reflect::set(&obj, &JsValue::from_str(self.variant), &value).unwrap();
+        Reflect::set(&obj, &static_str_to_js(self.variant), &value).unwrap();
         Ok(obj)
     }
 }
@@ -179,7 +179,7 @@ impl ser::SerializeStruct for ObjectSerializer<'_> {
     ) -> Result<()> {
         Reflect::set(
             &self.target,
-            &JsValue::from_str(key),
+            &static_str_to_js(key),
             &value.serialize(self.serializer)?,
         )
         .map_err(convert_error)?;
@@ -304,7 +304,7 @@ impl<'s> ser::Serializer for &'s Serializer {
         _variant_index: u32,
         variant: &'static str,
     ) -> Result {
-        self.serialize_str(variant)
+        Ok(static_str_to_js(variant))
     }
 
     fn serialize_newtype_struct<T: ?Sized + Serialize>(

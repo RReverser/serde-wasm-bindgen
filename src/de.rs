@@ -2,20 +2,7 @@ use js_sys::{ArrayBuffer, JsString, Number, Object, Uint8Array};
 use serde::{de, serde_if_integer128};
 use wasm_bindgen::{JsCast, JsValue};
 
-use super::{convert_error, Error, Result};
-
-fn static_str_to_js(s: &'static str) -> JsValue {
-    thread_local! {
-        static CACHE: std::cell::RefCell<fnv::FnvHashMap<&'static str, JsValue>> = Default::default();
-    }
-    CACHE.with(|cache| {
-        cache
-            .borrow_mut()
-            .entry(s)
-            .or_insert_with(|| JsValue::from_str(s))
-            .clone()
-    })
-}
+use super::{convert_error, Error, Result, static_str_to_js};
 
 /// Provides [`de::SeqAccess`] from any JS iterator.
 struct SeqAccess {

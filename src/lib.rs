@@ -17,6 +17,19 @@ fn convert_error(err: JsValue) -> Error {
     ))
 }
 
+fn static_str_to_js(s: &'static str) -> JsValue {
+    thread_local! {
+        static CACHE: std::cell::RefCell<fnv::FnvHashMap<&'static str, JsValue>> = Default::default();
+    }
+    CACHE.with(|cache| {
+        cache
+            .borrow_mut()
+            .entry(s)
+            .or_insert_with(|| JsValue::from_str(s))
+            .clone()
+    })
+}
+
 pub fn from_value<T: serde::de::DeserializeOwned>(value: JsValue) -> Result<T> {
     T::deserialize(Deserializer::from(value))
 }
