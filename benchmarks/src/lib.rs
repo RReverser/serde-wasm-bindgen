@@ -8,7 +8,7 @@ mod canada;
 mod citm_catalog;
 mod twitter;
 
-#[wasm_bindgen]
+#[wasm_bindgen(start)]
 pub fn init_console() {
     console_error_panic_hook::set_once();
 }

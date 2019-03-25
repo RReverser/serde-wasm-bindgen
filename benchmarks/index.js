@@ -3,8 +3,6 @@
 const { Suite } = require('benchmark');
 const benches = require('./pkg');
 
-benches.init_console();
-
 let suite = new Suite();
 
 for (let input of ['canada', 'citm_catalog', 'twitter']) {
@@ -12,7 +10,7 @@ for (let input of ['canada', 'citm_catalog', 'twitter']) {
 
 	for (const lib of ['serde_json', 'serde_wasm_bindgen']) {
 		const func = benches[`parse_${input}_with_${lib}`];
-		suite.add(`${input} x ${lib}`, () => func(json));
+		suite.add(`${input} x ${lib}`, () => func(json).free());
 	}
 }
 
