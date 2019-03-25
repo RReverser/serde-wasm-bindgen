@@ -21,7 +21,7 @@ impl<S> VariantSerializer<S> {
     fn end(self, inner: impl FnOnce(S) -> Result) -> Result {
         let value = inner(self.inner)?;
         let obj = JsValue::from(Object::new());
-        Reflect::set(&obj, &static_str_to_js(self.variant), &value).unwrap();
+        Reflect::set(&obj, &static_str_to_js(self.variant), &value).map_err(convert_error)?;
         Ok(obj)
     }
 }
