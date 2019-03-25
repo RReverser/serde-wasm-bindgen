@@ -3,8 +3,10 @@
 const { Suite } = require('benchmark');
 const benches = require('./pkg');
 
-let parseSuite = new Suite('parse');
-let serializeSuite = new Suite('serialize');
+let suites = {
+	parse: new Suite('parse'),
+	serialize: new Suite('serialize')
+};
 
 for (let input of ['canada', 'citm_catalog', 'twitter']) {
 	const json = require(`./${input}.json`);
@@ -12,11 +14,11 @@ for (let input of ['canada', 'citm_catalog', 'twitter']) {
 
 	for (const lib of ['serde_json', 'serde_wasm_bindgen']) {
 		const parse = benches[`parse_${input}_with_${lib}`];
-		parseSuite.add(`${input} x ${lib}`, () => free(parse(json)));
+		suites.parse.add(`${input} x ${lib}`, () => free(parse(json)));
 
 		const serialize = benches[`serialize_${input}_with_${lib}`];
 		let parsed = parse(json);
-		serializeSuite.add(`${input} x ${lib}`, () => serialize(parsed), {
+		suites.serialize.add(`${input} x ${lib}`, () => serialize(parsed), {
 			onComplete: () => free(parsed)
 		});
 	}
@@ -33,5 +35,9 @@ function runSuite(suite) {
 	.run();
 }
 
-runSuite(parseSuite);
-runSuite(serializeSuite);
+if (process.argv.length > 2) {
+	runSuite(suites[process.argv[2]]);
+} else {
+	runSuite(suites.parse);
+	runSuite(suites.serialize);
+}
