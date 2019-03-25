@@ -4,6 +4,19 @@ use wasm_bindgen::{JsCast, JsValue};
 
 use super::{convert_error, Error, Result};
 
+fn static_str_to_js(s: &'static str) -> JsValue {
+    thread_local! {
+        static CACHE: std::cell::RefCell<fnv::FnvHashMap<&'static str, JsValue>> = Default::default();
+    }
+    CACHE.with(|cache| {
+        cache
+            .borrow_mut()
+            .entry(s)
+            .or_insert_with(|| JsValue::from_str(s))
+            .clone()
+    })
+}
+
 /// Provides [`de::SeqAccess`] from any JS iterator.
 struct SeqAccess {
     iter: js_sys::IntoIter,
@@ -48,6 +61,30 @@ impl<'de> de::MapAccess<'de> for MapAccess {
 
     fn next_value_seed<V: de::DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value> {
         seed.deserialize(self.next_value.take().unwrap())
+    }
+}
+
+struct ObjectAccess {
+    obj: JsValue,
+    fields: &'static [&'static str],
+}
+
+impl<'de> de::MapAccess<'de> for ObjectAccess {
+    type Error = Error;
+
+    fn next_key_seed<K: de::DeserializeSeed<'de>>(&mut self, seed: K) -> Result<Option<K::Value>> {
+        Ok(match self.fields.get(0) {
+            Some(&field) => Some(seed.deserialize(de::IntoDeserializer::into_deserializer(field))?),
+            None => None,
+        })
+    }
+
+    fn next_value_seed<V: de::DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value> {
+        let field = self.fields[0];
+        self.fields = &self.fields[1..];
+        let value =
+            js_sys::Reflect::get(&self.obj, &static_str_to_js(field)).map_err(convert_error)?;
+        seed.deserialize(Deserializer::from(value))
     }
 }
 
@@ -409,10 +446,14 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     fn deserialize_struct<V: de::Visitor<'de>>(
         self,
         _name: &'static str,
-        _fields: &'static [&'static str],
+        fields: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value> {
-        self.deserialize_map(visitor)
+        let map = ObjectAccess {
+            obj: self.value,
+            fields,
+        };
+        visitor.visit_map(map)
     }
 
     /// Here we try to be compatible with `serde-json`, which means supporting:
