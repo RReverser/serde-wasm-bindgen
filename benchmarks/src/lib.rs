@@ -8,37 +8,56 @@ mod canada;
 mod citm_catalog;
 mod twitter;
 
+use canada::Canada;
+use citm_catalog::CitmCatalog;
+use twitter::Twitter;
+
 #[wasm_bindgen(start)]
 pub fn init_console() {
     console_error_panic_hook::set_once();
 }
 
 #[wasm_bindgen]
-pub fn parse_canada_with_serde_wasm_bindgen(input: JsValue) {
-    let _: canada::Canada = serde_wasm_bindgen::from_value(input).unwrap();
+pub fn parse_canada_with_serde_wasm_bindgen(input: JsValue) -> *const Canada {
+    Box::leak(serde_wasm_bindgen::from_value(input).unwrap())
 }
 
 #[wasm_bindgen]
-pub fn parse_canada_with_serde_json(input: JsValue) {
-    let _: canada::Canada = input.into_serde().unwrap();
+pub fn parse_canada_with_serde_json(input: JsValue) -> *const Canada {
+    Box::leak(input.into_serde().unwrap())
 }
 
 #[wasm_bindgen]
-pub fn parse_citm_catalog_with_serde_wasm_bindgen(input: JsValue) {
-    let _: citm_catalog::CitmCatalog = serde_wasm_bindgen::from_value(input).unwrap();
+pub fn free_canada(input: *mut Canada) {
+    unsafe { Box::from_raw(input); }
 }
 
 #[wasm_bindgen]
-pub fn parse_citm_catalog_with_serde_json(input: JsValue) {
-    let _: citm_catalog::CitmCatalog = input.into_serde().unwrap();
+pub fn parse_citm_catalog_with_serde_wasm_bindgen(input: JsValue) -> *const CitmCatalog {
+    Box::leak(serde_wasm_bindgen::from_value(input).unwrap())
 }
 
 #[wasm_bindgen]
-pub fn parse_twitter_with_serde_wasm_bindgen(input: JsValue) {
-    let _: twitter::Twitter = serde_wasm_bindgen::from_value(input).unwrap();
+pub fn parse_citm_catalog_with_serde_json(input: JsValue) -> *const CitmCatalog {
+    Box::leak(input.into_serde().unwrap())
 }
 
 #[wasm_bindgen]
-pub fn parse_twitter_with_serde_json(input: JsValue) {
-    let _: twitter::Twitter = input.into_serde().unwrap();
+pub fn free_citm_catalog(input: *mut CitmCatalog) {
+    unsafe { Box::from_raw(input); }
+}
+
+#[wasm_bindgen]
+pub fn parse_twitter_with_serde_wasm_bindgen(input: JsValue) -> *const Twitter {
+    Box::leak(serde_wasm_bindgen::from_value(input).unwrap())
+}
+
+#[wasm_bindgen]
+pub fn parse_twitter_with_serde_json(input: JsValue) -> *const Twitter {
+    Box::leak(input.into_serde().unwrap())
+}
+
+#[wasm_bindgen]
+pub fn free_twitter(input: *mut Twitter) {
+    unsafe { Box::from_raw(input); }
 }

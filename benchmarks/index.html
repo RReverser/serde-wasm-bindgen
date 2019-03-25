@@ -32,9 +32,11 @@
 		}
 
 		for (let { input, json } of inputs) {
+			const free = benches[`free_${input}`];
+
 			for (const lib of ['serde_json', 'serde_wasm_bindgen']) {
-				const func = benches[`parse_${input}_with_${lib}`];
-				addFunc(`${input} x ${lib}`, () => func(json));
+				const parse = benches[`parse_${input}_with_${lib}`];
+				addFunc(`${input} x ${lib}`, () => free(parse(json)));
 			}
 		}
 
