@@ -26,10 +26,15 @@
 		benches,
 		Promise.all(inputs)
 	]).then(([benches, inputs]) => {
-		let suites = {
-			parse: new Benchmark.Suite('parse'),
-			serialize: new Benchmark.Suite('serialize')
-		};
+		let suites = {};
+
+		function addSuite(name) {
+			suites[name] = new Benchmark.Suite(name, {
+				onError: event => output.textContent = target.error,
+				onCycle: event => output.textContent += event.target.toString() + '\n',
+				onComplete: endRun,
+			});
+		}
 
 		function addFunc(suite, name, func) {
 			Object.defineProperty(func, 'name', {
@@ -37,6 +42,9 @@
 			});
 			suite.add(name, func);
 		}
+
+		addSuite('parse');
+		addSuite('serialize');
 
 		for (let { input, json } of inputs) {
 			const free = benches[`free_${input}`];
@@ -61,31 +69,24 @@
 			return suite;
 		}
 
-		function endRun(suite) {
+		function endRun() {
 			output.textContent += 'Done!';
 			run.disabled = false;
 			singleRun.disabled = false;
-			suite.reset();
 		}
 
 		run.onclick = () => {
-			let suite = startRun();
-
-			suite.on('error', event => output.textContent = target.error)
-			.on('cycle', event => output.textContent += event.target.toString() + '\n')
-			.on('complete', () => endRun(suite))
-			.run({ async: true });
+			startRun().run({ async: true });
 		};
 
 		singleRun.onclick = () => {
-			let suite = startRun();
-			suite.forEach(bench => {
+			startRun().forEach(bench => {
 				let start = performance.now();
 				bench.fn();
 				let passed = (performance.now() - start);
 				output.textContent += `${bench.name} x ${(1000 / passed).toFixed(2)} ops/sec\n`;
 			});
-			endRun(suite);
+			endRun();
 		};
 
 		run.disabled = false;
