@@ -1,0 +1,6 @@
+canada x serde_json x 33.82 ops/sec ±0.68% (44 runs sampled)
+canada x serde_wasm_bindgen x 40.25 ops/sec ±0.62% (43 runs sampled)
+citm_catalog x serde_json x 158 ops/sec ±0.63% (58 runs sampled)
+citm_catalog x serde_wasm_bindgen x 26.84 ops/sec ±1.12% (37 runs sampled)
+twitter x serde_json x 193 ops/sec ±1.00% (57 runs sampled)
+twitter x serde_wasm_bindgen x 48.25 ops/sec ±0.68% (51 runs sampled)
