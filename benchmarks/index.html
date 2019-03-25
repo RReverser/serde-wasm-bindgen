@@ -2,6 +2,10 @@
 <script src="https://unpkg.com/lodash"></script>
 <script src="https://unpkg.com/benchmark"></script>
 <script src="pkg/serde_wasm_bindgen_benches.js"></script>
+<select id="suite">
+	<option value="parse">Parse</option>
+	<option value="serialize">Serialize</option>
+</select>
 <input type="button" id="run" disabled value="Run" />
 <input type="button" id="singleRun" disabled value="Single run" />
 <pre id="output"></pre>
@@ -22,9 +26,12 @@
 		benches,
 		Promise.all(inputs)
 	]).then(([benches, inputs]) => {
-		let suite = new Benchmark.Suite();
+		let suites = {
+			parse: new Benchmark.Suite('parse'),
+			serialize: new Benchmark.Suite('serialize')
+		};
 
-		function addFunc(name, func) {
+		function addFunc(suite, name, func) {
 			Object.defineProperty(func, 'name', {
 				value: name
 			});
@@ -36,40 +43,49 @@
 
 			for (const lib of ['serde_json', 'serde_wasm_bindgen']) {
 				const parse = benches[`parse_${input}_with_${lib}`];
-				addFunc(`${input} x ${lib}`, () => free(parse(json)));
+				addFunc(suites.parse, `${input} x ${lib}`, () => free(parse(json)));
+
+				const serialize = benches[`serialize_${input}_with_${lib}`];
+				let parsed = parse(json);
+				addFunc(suites.serialize, `${input} x ${lib}`, () => serialize(parsed), {
+					onComplete: () => free(parsed)
+				});
 			}
 		}
 
 		function startRun() {
-			output.textContent = 'Running...\n';
+			let suite = suites[document.getElementById('suite').value];
+			output.textContent = `Running '${suite.name}' suite...\n`;
 			run.disabled = true;
 			singleRun.disabled = true;
+			return suite;
 		}
 
-		function endRun() {
+		function endRun(suite) {
 			output.textContent += 'Done!';
 			run.disabled = false;
 			singleRun.disabled = false;
+			suite.reset();
 		}
 
 		run.onclick = () => {
-			startRun();
+			let suite = startRun();
 
 			suite.on('error', event => output.textContent = target.error)
 			.on('cycle', event => output.textContent += event.target.toString() + '\n')
-			.on('complete', () => endRun())
+			.on('complete', () => endRun(suite))
 			.run({ async: true });
 		};
 
 		singleRun.onclick = () => {
-			startRun();
+			let suite = startRun();
 			suite.forEach(bench => {
 				let start = performance.now();
 				bench.fn();
 				let passed = (performance.now() - start);
 				output.textContent += `${bench.name} x ${(1000 / passed).toFixed(2)} ops/sec\n`;
 			});
-			endRun();
+			endRun(suite);
 		};
 
 		run.disabled = false;
