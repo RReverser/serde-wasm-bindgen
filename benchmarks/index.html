@@ -3,6 +3,7 @@
 <script src="https://unpkg.com/benchmark"></script>
 <script src="pkg/serde_wasm_bindgen_benches.js"></script>
 <input type="button" id="run" disabled value="Run" />
+<input type="button" id="singleRun" disabled value="Single run" />
 <pre id="output"></pre>
 <script>
 	delete WebAssembly.instantiateStreaming;
@@ -26,27 +27,54 @@
 	]).then(([benches, inputs]) => {
 		let suite = new Benchmark.Suite();
 
+		function addFunc(name, func) {
+			Object.defineProperty(func, 'name', {
+				value: name
+			});
+			suite.add(name, func);
+		}
+
 		for (let { input, json } of inputs) {
 			for (const lib of ['serde_json', 'serde_wasm_bindgen']) {
 				const func = benches[`parse_${input}_with_${lib}`];
-				suite.add(`${input} x ${lib}`, () => func(json));
+				addFunc(`${input} x ${lib}`, () => func(json));
 			}
 		}
 
-		run.onclick = () => {
+		function startRun() {
 			output.textContent = 'Running...\n';
 			run.disabled = true;
+			singleRun.disabled = true;
+		}
+
+		function endRun() {
+			output.textContent += 'Done!';
+			run.disabled = false;
+			singleRun.disabled = false;
+		}
+
+		run.onclick = () => {
+			startRun();
 
 			suite.on('error', event => output.textContent = target.error)
 			.on('cycle', event => output.textContent += event.target.toString() + '\n')
-			.on('complete', event => {
-				output.textContent += 'Done!';
-				run.disabled = false;
-			})
+			.on('complete', () => endRun())
 			.run({ async: true });
 		};
 
+		singleRun.onclick = () => {
+			startRun();
+			suite.forEach(bench => {
+				let start = performance.now();
+				bench.fn();
+				let passed = (performance.now() - start);
+				output.textContent += `${bench.name} x ${(1000 / passed).toFixed(2)} ops/sec\n`;
+			});
+			endRun();
+		};
+
 		run.disabled = false;
+		singleRun.disabled = false;
 	}).catch(err => {
 		console.error(err);
 		output.textContent = err;
