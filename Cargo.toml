@@ -18,3 +18,13 @@ serde_json = "1.0.39"
 
 [workspace]
 members = ["benchmarks"]
+
+[profile.release]
+lto = true
+codegen-units = 1
+
+[patch.crates-io.wasm-bindgen]
+git = "https://github.com/rustwasm/wasm-bindgen"
+
+[patch.crates-io.js-sys]
+git = "https://github.com/rustwasm/wasm-bindgen"
