@@ -10,8 +10,6 @@
 <input type="button" id="singleRun" disabled value="Single run" />
 <pre id="output"></pre>
 <script>
-	delete WebAssembly.instantiateStreaming;
-
 	const benches = wasm_bindgen('pkg/serde_wasm_bindgen_benches_bg.wasm').then(() => wasm_bindgen);
 
 	const inputs = ['canada', 'citm_catalog', 'twitter'].map(async input => {
