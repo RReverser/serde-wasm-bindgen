@@ -1,10 +1,22 @@
-use js_sys::{Array, JsString, Map, Object, Reflect, Uint8Array};
+use js_sys::{Array, JsString, Map, Uint8Array};
 use serde::ser::{self, Error as _, Serialize};
-use wasm_bindgen::JsValue;
+use wasm_bindgen::prelude::*;
 
-use super::{convert_error, Error, static_str_to_js};
+use super::{Error, static_str_to_js};
 
 type Result<T = JsValue> = super::Result<T>;
+
+/// Custom bindings to avoid using fallible `Reflect` for plain objects.
+#[wasm_bindgen]
+extern {
+    type Object;
+
+    #[wasm_bindgen(constructor)]
+    fn new() -> Object;
+
+    #[wasm_bindgen(method, indexing_setter)]
+    fn set(this: &Object, key: JsValue, value: JsValue);
+}
 
 /// Wraps other serializers into an enum tagged variant form.
 /// Uses {"Variant": ...payload...} for compatibility with serde-json.
@@ -20,9 +32,9 @@ impl<S> VariantSerializer<S> {
 
     fn end(self, inner: impl FnOnce(S) -> Result) -> Result {
         let value = inner(self.inner)?;
-        let obj = JsValue::from(Object::new());
-        Reflect::set(&obj, &static_str_to_js(self.variant), &value).map_err(convert_error)?;
-        Ok(obj)
+        let obj = Object::new();
+        obj.set(static_str_to_js(self.variant), value);
+        Ok(obj.into())
     }
 }
 
@@ -177,12 +189,7 @@ impl ser::SerializeStruct for ObjectSerializer<'_> {
         key: &'static str,
         value: &T,
     ) -> Result<()> {
-        Reflect::set(
-            &self.target,
-            &static_str_to_js(key),
-            &value.serialize(self.serializer)?,
-        )
-        .map_err(convert_error)?;
+        self.target.set(static_str_to_js(key), value.serialize(self.serializer)?);
         Ok(())
     }
 
