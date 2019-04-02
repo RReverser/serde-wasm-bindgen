@@ -158,7 +158,7 @@ impl Deserializer {
     }
 
     #[cold]
-    fn invalid_type<'de, V: de::Visitor<'de>>(&self, visitor: V) -> Result<V::Value> {
+    fn invalid_type_(&self, visitor: &dyn de::Expected) -> Error {
         let string;
         let bytes;
 
@@ -179,7 +179,11 @@ impl Deserializer {
             de::Unexpected::Other(&string)
         };
 
-        Err(de::Error::invalid_type(unexpected, &visitor))
+        de::Error::invalid_type(unexpected, visitor)
+    }
+
+    fn invalid_type<'de, V: de::Visitor<'de>>(&self, visitor: V) -> Result<V::Value> {
+        Err(self.invalid_type_(&visitor))
     }
 
     fn as_safe_integer(&self) -> Option<i64> {
