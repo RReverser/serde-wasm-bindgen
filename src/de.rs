@@ -2,7 +2,7 @@ use js_sys::{ArrayBuffer, JsString, Number, Object, Uint8Array};
 use serde::{de, serde_if_integer128};
 use wasm_bindgen::{JsCast, JsValue};
 
-use super::{convert_error, Error, Result, static_str_to_js};
+use super::{Error, Result, static_str_to_js};
 
 /// Provides [`de::SeqAccess`] from any JS iterator.
 struct SeqAccess {
@@ -16,11 +16,10 @@ impl<'de> de::SeqAccess<'de> for SeqAccess {
         &mut self,
         seed: T,
     ) -> Result<Option<T::Value>> {
-        match self.iter.next() {
-            Some(Ok(value)) => Ok(Some(seed.deserialize(Deserializer::from(value))?)),
-            Some(Err(err)) => Err(convert_error(err)),
-            None => Ok(None),
-        }
+        Ok(match self.iter.next().transpose()? {
+            Some(value) => Some(seed.deserialize(Deserializer::from(value))?),
+            None => None,
+        })
     }
 }
 
@@ -34,16 +33,15 @@ impl<'de> de::MapAccess<'de> for MapAccess {
     type Error = Error;
 
     fn next_key_seed<K: de::DeserializeSeed<'de>>(&mut self, seed: K) -> Result<Option<K::Value>> {
-        match self.iter.next() {
-            Some(Ok(pair)) => {
+        Ok(match self.iter.next().transpose()? {
+            Some(pair) => {
                 debug_assert!(self.next_value.is_none());
                 let (key, value) = convert_pair(pair)?;
                 self.next_value = Some(value);
-                Ok(Some(seed.deserialize(key)?))
+                Some(seed.deserialize(key)?)
             }
-            Some(Err(err)) => Err(convert_error(err)),
-            None => Ok(None),
-        }
+            None => None,
+        })
     }
 
     fn next_value_seed<V: de::DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value> {
@@ -61,7 +59,7 @@ impl<'de> de::MapAccess<'de> for ObjectAccess {
 
     fn next_key_seed<K: de::DeserializeSeed<'de>>(&mut self, seed: K) -> Result<Option<K::Value>> {
         Ok(match self.fields.get(0) {
-            Some(&field) => Some(seed.deserialize(de::IntoDeserializer::into_deserializer(field))?),
+            Some(&field) => Some(seed.deserialize(de::IntoDeserializer::<Error>::into_deserializer(field))?),
             None => None,
         })
     }
@@ -70,7 +68,7 @@ impl<'de> de::MapAccess<'de> for ObjectAccess {
         let field = self.fields[0];
         self.fields = &self.fields[1..];
         let value =
-            js_sys::Reflect::get(&self.obj, &static_str_to_js(field)).map_err(convert_error)?;
+            js_sys::Reflect::get(&self.obj, &static_str_to_js(field))?;
         seed.deserialize(Deserializer::from(value))
     }
 }
@@ -108,11 +106,9 @@ impl From<JsValue> for Deserializer {
 fn convert_pair(pair: JsValue) -> Result<(Deserializer, Deserializer)> {
     Ok((
         js_sys::Reflect::get_u32(&pair, 0)
-            .map(Deserializer::from)
-            .map_err(convert_error)?,
+            .map(Deserializer::from)?,
         js_sys::Reflect::get_u32(&pair, 1)
-            .map(Deserializer::from)
-            .map_err(convert_error)?,
+            .map(Deserializer::from)?,
     ))
 }
 
@@ -386,7 +382,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
                 .unchecked_into::<js_sys::Array>()
                 .values()
                 .into_iter()
-        } else if let Some(iter) = js_sys::try_iter(&self.value).map_err(convert_error)? {
+        } else if let Some(iter) = js_sys::try_iter(&self.value)? {
             iter
         } else {
             return self.invalid_type(visitor);
@@ -417,7 +413,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     ///  - A typed Rust structure with `#[derive(Deserialize)]`.
     fn deserialize_map<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         let map = MapAccess {
-            iter: match js_sys::try_iter(&self.value).map_err(convert_error)? {
+            iter: match js_sys::try_iter(&self.value)? {
                 Some(iter) => iter,
                 None => match self.as_object() {
                     Some(obj) => Object::entries(obj).values().into_iter(),
@@ -462,7 +458,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
             if entries.length() != 1 {
                 return Err(de::Error::invalid_length(entries.length() as _, &"1"));
             }
-            let entry = js_sys::Reflect::get_u32(&entries, 0).map_err(convert_error)?;
+            let entry = js_sys::Reflect::get_u32(&entries, 0)?;
             let (tag, payload) = convert_pair(entry)?;
             EnumAccess { tag, payload }
         } else {
