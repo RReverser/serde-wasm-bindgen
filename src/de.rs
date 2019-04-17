@@ -2,7 +2,7 @@ use js_sys::{ArrayBuffer, JsString, Number, Object, Uint8Array};
 use serde::{de, serde_if_integer128};
 use wasm_bindgen::{JsCast, JsValue};
 
-use super::{Error, Result, static_str_to_js};
+use super::{static_str_to_js, Error, Result};
 
 /// Provides [`de::SeqAccess`] from any JS iterator.
 struct SeqAccess {
@@ -33,9 +33,10 @@ impl<'de> de::MapAccess<'de> for MapAccess {
     type Error = Error;
 
     fn next_key_seed<K: de::DeserializeSeed<'de>>(&mut self, seed: K) -> Result<Option<K::Value>> {
+        debug_assert!(self.next_value.is_none());
+
         Ok(match self.iter.next().transpose()? {
             Some(pair) => {
-                debug_assert!(self.next_value.is_none());
                 let (key, value) = convert_pair(pair)?;
                 self.next_value = Some(value);
                 Some(seed.deserialize(key)?)
@@ -47,6 +48,22 @@ impl<'de> de::MapAccess<'de> for MapAccess {
     fn next_value_seed<V: de::DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value> {
         seed.deserialize(self.next_value.take().unwrap())
     }
+
+    fn next_entry_seed<K: de::DeserializeSeed<'de>, V: de::DeserializeSeed<'de>>(
+        &mut self,
+        kseed: K,
+        vseed: V,
+    ) -> Result<Option<(K::Value, V::Value)>> {
+        debug_assert!(self.next_value.is_none());
+
+        Ok(match self.iter.next().transpose()? {
+            Some(pair) => {
+                let (key, value) = convert_pair(pair)?;
+                Some((kseed.deserialize(key)?, vseed.deserialize(value)?))
+            }
+            None => None,
+        })
+    }
 }
 
 struct ObjectAccess {
@@ -54,12 +71,18 @@ struct ObjectAccess {
     fields: &'static [&'static str],
 }
 
+fn str_deserializer(s: &str) -> de::value::StrDeserializer<Error> {
+    de::IntoDeserializer::into_deserializer(s)
+}
+
 impl<'de> de::MapAccess<'de> for ObjectAccess {
     type Error = Error;
 
     fn next_key_seed<K: de::DeserializeSeed<'de>>(&mut self, seed: K) -> Result<Option<K::Value>> {
         Ok(match self.fields.get(0) {
-            Some(&field) => Some(seed.deserialize(de::IntoDeserializer::<Error>::into_deserializer(field))?),
+            Some(&field) => {
+                Some(seed.deserialize(str_deserializer(field))?)
+            }
             None => None,
         })
     }
@@ -67,9 +90,28 @@ impl<'de> de::MapAccess<'de> for ObjectAccess {
     fn next_value_seed<V: de::DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value> {
         let (field, fields) = self.fields.split_first().unwrap();
         self.fields = fields;
-        let value =
-            js_sys::Reflect::get(&self.obj, &static_str_to_js(field))?;
+        let value = js_sys::Reflect::get(&self.obj, &static_str_to_js(field))?;
         seed.deserialize(Deserializer::from(value))
+    }
+
+    fn next_entry_seed<K: de::DeserializeSeed<'de>, V: de::DeserializeSeed<'de>>(
+        &mut self,
+        kseed: K,
+        vseed: V,
+    ) -> Result<Option<(K::Value, V::Value)>> {
+        Ok(match self.fields.split_first() {
+            Some((&field, fields)) => {
+                self.fields = fields;
+                Some((
+                    kseed.deserialize(str_deserializer(field))?,
+                    vseed.deserialize(Deserializer::from(js_sys::Reflect::get(
+                        &self.obj,
+                        &static_str_to_js(field),
+                    )?))?,
+                ))
+            }
+            None => None,
+        })
     }
 }
 
@@ -105,10 +147,8 @@ impl From<JsValue> for Deserializer {
 /// Destructures a JS `[key, value]` pair into a tuple of [`Deserializer`]s.
 fn convert_pair(pair: JsValue) -> Result<(Deserializer, Deserializer)> {
     Ok((
-        js_sys::Reflect::get_u32(&pair, 0)
-            .map(Deserializer::from)?,
-        js_sys::Reflect::get_u32(&pair, 1)
-            .map(Deserializer::from)?,
+        js_sys::Reflect::get_u32(&pair, 0).map(Deserializer::from)?,
+        js_sys::Reflect::get_u32(&pair, 1).map(Deserializer::from)?,
     ))
 }
 
