@@ -65,8 +65,8 @@ impl<'de> de::MapAccess<'de> for ObjectAccess {
     }
 
     fn next_value_seed<V: de::DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value> {
-        let field = self.fields[0];
-        self.fields = &self.fields[1..];
+        let (field, fields) = self.fields.split_first().unwrap();
+        self.fields = fields;
         let value =
             js_sys::Reflect::get(&self.obj, &static_str_to_js(field))?;
         seed.deserialize(Deserializer::from(value))
