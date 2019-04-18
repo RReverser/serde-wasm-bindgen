@@ -80,9 +80,7 @@ impl<'de> de::MapAccess<'de> for ObjectAccess {
 
     fn next_key_seed<K: de::DeserializeSeed<'de>>(&mut self, seed: K) -> Result<Option<K::Value>> {
         Ok(match self.fields.get(0) {
-            Some(&field) => {
-                Some(seed.deserialize(str_deserializer(field))?)
-            }
+            Some(&field) => Some(seed.deserialize(str_deserializer(field))?),
             None => None,
         })
     }

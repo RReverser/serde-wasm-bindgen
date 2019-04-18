@@ -1,6 +1,6 @@
+use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
-use serde::{Serialize, Deserialize};
 
 mod color;
 mod prim_str;

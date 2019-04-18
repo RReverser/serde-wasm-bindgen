@@ -2,13 +2,13 @@ use js_sys::{Array, JsString, Map, Uint8Array};
 use serde::ser::{self, Error as _, Serialize};
 use wasm_bindgen::prelude::*;
 
-use super::{Error, static_str_to_js};
+use super::{static_str_to_js, Error};
 
 type Result<T = JsValue> = super::Result<T>;
 
 /// Custom bindings to avoid using fallible `Reflect` for plain objects.
 #[wasm_bindgen]
-extern {
+extern "C" {
     type Object;
 
     #[wasm_bindgen(constructor)]
