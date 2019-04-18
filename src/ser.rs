@@ -189,7 +189,8 @@ impl ser::SerializeStruct for ObjectSerializer<'_> {
         key: &'static str,
         value: &T,
     ) -> Result<()> {
-        self.target.set(static_str_to_js(key), value.serialize(self.serializer)?);
+        let value = value.serialize(self.serializer)?;
+        self.target.set(static_str_to_js(key), value);
         Ok(())
     }
 
