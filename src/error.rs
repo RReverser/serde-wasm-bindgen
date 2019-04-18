@@ -19,13 +19,7 @@ impl std::error::Error for Error {}
 
 impl Error {
     pub fn new<T: std::fmt::Display>(msg: T) -> Self {
-        #[wasm_bindgen]
-        extern "C" {
-            #[wasm_bindgen(js_name = Error)]
-            fn js_error(msg: String) -> JsValue;
-        }
-
-        Error(js_error(msg.to_string()))
+        Error(js_sys::Error::new(&msg.to_string()).into())
     }
 }
 
