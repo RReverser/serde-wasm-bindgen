@@ -423,7 +423,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     fn deserialize_seq<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         let iter = if js_sys::Array::is_array(&self.value) {
             self.value
-                .unchecked_into::<js_sys::Array>()
+                .unchecked_ref::<js_sys::Array>()
                 .values()
                 .into_iter()
         } else if let Some(iter) = js_sys::try_iter(&self.value)? {
