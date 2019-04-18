@@ -45,16 +45,14 @@
 		addSuite('serialize');
 
 		for (let { input, json } of inputs) {
-			const free = benches[`free_${input}`];
-
 			for (const lib of ['serde_json', 'serde_wasm_bindgen']) {
 				const parse = benches[`parse_${input}_with_${lib}`];
-				addFunc(suites.parse, `${input} x ${lib}`, () => free(parse(json)));
+				addFunc(suites.parse, `${input} x ${lib}`, () => parse(json).free());
 
 				const serialize = benches[`serialize_${input}_with_${lib}`];
 				let parsed = parse(json);
 				addFunc(suites.serialize, `${input} x ${lib}`, () => serialize(parsed), {
-					onComplete: () => free(parsed)
+					onComplete: () => parsed.free()
 				});
 			}
 		}
