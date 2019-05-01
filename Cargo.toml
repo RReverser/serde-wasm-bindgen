@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 serde = "^1.0"
 js-sys = "^0.3"
-wasm-bindgen = "^0.2"
+wasm-bindgen = "^0.2.43"
 fnv = "1.0.6"
 
 [dev-dependencies]

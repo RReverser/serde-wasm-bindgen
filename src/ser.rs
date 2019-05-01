@@ -276,7 +276,7 @@ impl<'s> ser::Serializer for &'s Serializer {
     }
 
     fn serialize_char(self, v: char) -> Result {
-        Ok(JsValue::from(JsString::from_code_point1(v as u32).unwrap()))
+        Ok(JsString::from(v).into())
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result {

@@ -371,24 +371,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     /// of an intermediate `String` by directly converting numeric codepoints instead.
     fn deserialize_char<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         if let Some(s) = self.as_js_string() {
-            let maybe_char = match s.length() {
-                1 => {
-                    // Should be valid `u16` because we checked the length.
-                    std::char::from_u32(s.char_code_at(0) as u32)
-                }
-                2 => {
-                    // Should be a valid `u32` by now.
-                    let cp = s.code_point_at(0).as_f64().unwrap() as u32;
-                    // This is a char only if it consists of two surrogates.
-                    if cp > 0xFFFF {
-                        std::char::from_u32(cp)
-                    } else {
-                        None
-                    }
-                }
-                _ => None,
-            };
-            if let Some(c) = maybe_char {
+            if let Some(c) = s.as_char() {
                 return visitor.visit_char(c);
             }
         }
