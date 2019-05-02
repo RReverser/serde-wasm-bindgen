@@ -402,11 +402,8 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     /// Supported outputs:
     ///  - Any Rust sequence from Serde point of view ([`Vec`], [`HashSet`](std::collections::HashSet), etc.)
     fn deserialize_seq<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        let iter = if js_sys::Array::is_array(&self.value) {
-            self.value
-                .unchecked_ref::<js_sys::Array>()
-                .values()
-                .into_iter()
+        let iter = if let Some(arr) = self.value.dyn_ref::<js_sys::Array>() {
+            arr.values().into_iter()
         } else if let Some(iter) = js_sys::try_iter(&self.value)? {
             iter
         } else {
