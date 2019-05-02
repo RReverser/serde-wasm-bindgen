@@ -153,9 +153,9 @@ fn convert_pair(pair: JsValue) -> Result<(Deserializer, Deserializer)> {
 impl Deserializer {
     /// Casts the internal value into an object, including support for prototype-less objects.
     /// See https://github.com/rustwasm/wasm-bindgen/issues/1366 for why we don't use `dyn_ref`.
-    fn as_object(&self) -> Option<&Object> {
+    fn as_object_entries(&self) -> Option<js_sys::Array> {
         if self.value.is_object() {
-            Some(self.value.unchecked_ref())
+            Some(Object::entries(self.value.unchecked_ref()))
         } else {
             None
         }
@@ -427,8 +427,8 @@ impl<'de> de::Deserializer<'de> for Deserializer {
         let map = MapAccess {
             iter: match js_sys::try_iter(&self.value)? {
                 Some(iter) => iter,
-                None => match self.as_object() {
-                    Some(obj) => Object::entries(obj).values().into_iter(),
+                None => match self.as_object_entries() {
+                    Some(entries) => entries.values().into_iter(),
                     None => return self.invalid_type(visitor),
                 },
             },
@@ -465,8 +465,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
                 tag: self.value.into(),
                 payload: JsValue::UNDEFINED.into(),
             }
-        } else if let Some(v) = self.as_object() {
-            let entries = Object::entries(&v);
+        } else if let Some(entries) = self.as_object_entries() {
             if entries.length() != 1 {
                 return Err(de::Error::invalid_length(entries.length() as _, &"1"));
             }
