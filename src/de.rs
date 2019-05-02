@@ -185,16 +185,6 @@ impl Deserializer {
         Some(vec)
     }
 
-    /// Converts any JS string into a [`JsString`], while avoiding `instanceof String`.
-    /// See https://github.com/rustwasm/wasm-bindgen/issues/1367 for why we don't use `dyn_ref`.
-    fn as_js_string(&self) -> Option<&JsString> {
-        if self.value.is_string() {
-            Some(self.value.unchecked_ref())
-        } else {
-            None
-        }
-    }
-
     #[cold]
     fn invalid_type_(&self, visitor: &dyn de::Expected) -> Error {
         let string;
@@ -370,7 +360,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     /// but if we get a hint that they're expected, this methods allows to avoid heap allocations
     /// of an intermediate `String` by directly converting numeric codepoints instead.
     fn deserialize_char<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        if let Some(s) = self.as_js_string() {
+        if let Some(s) = self.value.dyn_ref::<JsString>() {
             if let Some(c) = s.as_char() {
                 return visitor.visit_char(c);
             }
