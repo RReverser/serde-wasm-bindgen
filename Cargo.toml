@@ -1,6 +1,6 @@
 [package]
 name = "serde-wasm-bindgen"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Ingvar Stepanyan <me@rreverser.com>"]
 edition = "2018"
 readme = "README.md"
@@ -28,3 +28,9 @@ members = ["benchmarks"]
 [profile.release]
 lto = true
 codegen-units = 1
+
+[features]
+external_doc = []
+
+[package.metadata.docs.rs]
+features = ["external_doc"]

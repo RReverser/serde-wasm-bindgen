@@ -1,5 +1,3 @@
-# serde-wasm-bindgen
-
 This is an alternative native integration of [Serde](https://serde.rs/) with [wasm-bindgen](https://github.com/rustwasm/wasm-bindgen).
 
 ## Why
@@ -37,7 +35,7 @@ pub fn get_value_from_js(value: JsValue) -> Result<(), JsValue> {
 
 Note that, even though it might often be the case, this library doesn't attempt to be strictly compatible with either [`serde_json`](https://docs.serde.rs/serde_json/) or, correspondingly, `JsValue::from_serde` / `JsValue::into_serde`, instead prioritising better compatibility with common JavaScript idioms and representations.
 
-Supported types and values:
+Supported types and values for the deserialization:
  - `()` from `undefined` and `null`.
  - `Option<_>` from any value will map `undefined` or `null` to `None` and any other value to `Some(...)`.
  - `bool` from a JavaScript boolean (`false` and `true`).
@@ -61,4 +59,4 @@ Serialization is compatible with the deserialization, but it's limited to a sing
 
 ## License
 
-Licensed under the MIT license. See the [LICENSE](LICENSE) file for details.
+Licensed under the MIT license. See the [LICENSE](../LICENSE) file for details.

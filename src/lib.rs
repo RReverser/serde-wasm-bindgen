@@ -1,14 +1,18 @@
+#![cfg_attr(feature = "external_doc", feature(external_doc))]
+#![cfg_attr(feature = "external_doc", doc(include = "../README.md"))]
+#![cfg_attr(feature = "external_doc", warn(missing_docs))]
+
 use wasm_bindgen::prelude::*;
 
-pub mod de;
-pub mod error;
-pub mod ser;
+mod de;
+mod error;
+mod ser;
 
 pub use de::Deserializer;
 pub use error::Error;
 pub use ser::Serializer;
 
-pub type Result<T> = std::result::Result<T, Error>;
+type Result<T> = std::result::Result<T, Error>;
 
 fn static_str_to_js(s: &'static str) -> JsValue {
     thread_local! {
@@ -23,10 +27,12 @@ fn static_str_to_js(s: &'static str) -> JsValue {
     })
 }
 
+/// Converts [`JsValue`] into a Rust type.
 pub fn from_value<T: serde::de::DeserializeOwned>(value: JsValue) -> Result<T> {
     T::deserialize(Deserializer::from(value))
 }
 
+/// Converts a Rust value into a [`JsValue`].
 pub fn to_value<T: serde::ser::Serialize>(value: &T) -> Result<JsValue> {
     value.serialize(&Serializer::new())
 }

@@ -1,5 +1,6 @@
 use wasm_bindgen::prelude::*;
 
+/// A newtype that represents Serde errors as JavaScript exceptions.
 #[derive(Debug)]
 pub struct Error(JsValue);
 
@@ -18,6 +19,7 @@ impl std::fmt::Display for Error {
 impl std::error::Error for Error {}
 
 impl Error {
+    /// Creates a JavaScript `Error` with a given message.
     pub fn new<T: std::fmt::Display>(msg: T) -> Self {
         Error(js_sys::Error::new(&msg.to_string()).into())
     }
@@ -35,8 +37,8 @@ impl serde::de::Error for Error {
     }
 }
 
-// This conversion is needed for `?` to just work when using wasm-bindgen
-// imports that return errors from the JS side as Result<T, JsValue>.
+/// This conversion is needed for `?` to just work when using wasm-bindgen
+/// imports that return JavaScript exceptions as `Result<T, JsValue>`.
 impl From<JsValue> for Error {
     fn from(error: JsValue) -> Error {
         Error(error)
@@ -44,7 +46,7 @@ impl From<JsValue> for Error {
 }
 
 // This conversion is needed for `?` to just work in wasm-bindgen exports
-// that need to return Result<T, JsValue> to throw on the JS side.
+// that return `Result<T, JsValue>` to throw JavaScript exceptions.
 impl From<Error> for JsValue {
     fn from(error: Error) -> JsValue {
         error.0

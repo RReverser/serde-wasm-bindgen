@@ -199,11 +199,13 @@ impl ser::SerializeStruct for ObjectSerializer<'_> {
     }
 }
 
+/// A [`serde::Serializer`] that converts supported Rust values into a [`JsValue`].
 // Serializer might be configurable in the future, so add but hide its implementation details.
 #[derive(Default)]
 pub struct Serializer(());
 
 impl Serializer {
+    /// Creates a new default [`Serializer`].
     pub fn new() -> Self {
         Default::default()
     }
