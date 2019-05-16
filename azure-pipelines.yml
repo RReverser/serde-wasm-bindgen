@@ -1,0 +1,13 @@
+jobs:
+  - job: test
+    steps:
+      - template: ci/azure-install-rust.yml
+      - template: ci/azure-install-node.yml
+      - script: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        displayName: "Installing wasm-pack"
+      - script: wasm-pack test --node
+        displayName: "wasm-pack test --node"
+      - script: cargo fmt --all -- --check
+        displayName: "cargo fmt"
+      - script: cargo clippy
+        displayName: "cargo clippy"
