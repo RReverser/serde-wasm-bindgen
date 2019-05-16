@@ -1,6 +1,6 @@
 [package]
 name = "serde-wasm-bindgen"
-version = "0.1.1"
+version = "0.1.3"
 authors = ["Ingvar Stepanyan <me@rreverser.com>"]
 edition = "2018"
 readme = "README.md"
