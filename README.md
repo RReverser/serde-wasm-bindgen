@@ -41,7 +41,7 @@ Supported types and values for the deserialization:
  - `()` from `undefined` and `null`.
  - `Option<_>` from any value will map `undefined` or `null` to `None` and any other value to `Some(...)`.
  - `bool` from a JavaScript boolean (`false` and `true`).
- - Rust integer (`u8`/`i8`/.../`u128`/`i128`) from a safe JavaScript integer (as matched by `Number.isSafeInteger`).
+ - Rust integer (`u8`/`i8`/.../`u128`/`i128`) from a safe JavaScript integer (as matched by [`Number.isSafeInteger`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/isSafeInteger)).
  - Rust floating number (`f32`/`f64`) from any JavaScript number.
  - `char` from a JavaScript string containing a single codepoint.
  - `String` from any JavaScript string.
@@ -50,7 +50,7 @@ Supported types and values for the deserialization:
  - Rust sequence (tuple, `Vec<_>`, `HashSet<_>`, ...) from any JavaScript iterable (including but not limited to `Array`, ES2015 `Set`, etc.).
  - Rust byte buffer (see [`serde_bytes`](https://github.com/serde-rs/bytes)) from JavaScript `ArrayBuffer` or `Uint8Array`.
  - Typed Rust structure from any plain JavaScript object (`{ key1: value1, ... }`).
- - Rust enum from either a string (`"Variant"`) or a plain object. Specific representation is controlled by `#[serde(...)]` attributes and should be compatible with `serde-json`.
+ - Rust enum from either a string (`"Variant"`) or a plain object. Specific representation is [controlled](https://serde.rs/enum-representations.html) by `#[serde(...)]` attributes and should be compatible with `serde-json`.
 
 Serialization is compatible with the deserialization, but it's limited to a single representation, so it chooses:
  - `undefined` for `()` or `None`.
@@ -61,4 +61,4 @@ Serialization is compatible with the deserialization, but it's limited to a sing
 
 ## License
 
-Licensed under the MIT license. See the [LICENSE](../LICENSE) file for details.
+Licensed under the MIT license. See the [LICENSE](LICENSE) file for details.
