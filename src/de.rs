@@ -243,6 +243,8 @@ impl<'de> de::Deserializer<'de> for Deserializer {
             }
         } else if let Some(v) = self.value.as_string() {
             visitor.visit_string(v)
+        } else if js_sys::Array::is_array(&self.value) {
+            self.deserialize_seq(visitor)
         } else if self.value.is_object() {
             self.deserialize_map(visitor)
         } else {

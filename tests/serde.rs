@@ -28,10 +28,25 @@ fn assert_json<R>(lhs_value: JsValue, rhs: R)
 where
     R: Serialize + DeserializeOwned + PartialEq + Debug,
 {
-    assert_eq!(
-        js_sys::JSON::stringify(&lhs_value).unwrap(),
-        serde_json::to_string(&rhs).unwrap(),
-    );
+    if lhs_value.is_object() {
+        assert_eq!(
+            js_sys::JSON::stringify(&lhs_value).unwrap(),
+            serde_json::to_string(&rhs).unwrap(),
+        );
+    } else if lhs_value.is_string() {
+        assert_eq!(
+            format!("{:?}", lhs_value.as_string().unwrap()),
+            serde_json::to_string(&rhs).unwrap()
+        )
+    } else if lhs_value.is_undefined() || lhs_value.is_null() {
+        assert_eq!(
+            "null",
+            serde_json::to_string(&rhs).unwrap()
+        )
+    } else {
+        unimplemented!()
+    }
+
     let restored_lhs: R = from_value(lhs_value.clone()).unwrap();
     assert_eq!(restored_lhs, rhs, "from_value from {:?}", lhs_value);
 }
@@ -216,24 +231,6 @@ fn enums() {
         ExternallyTagged
     }
 
-    // #[derive(Debug, PartialEq, Serialize, Deserialize)]
-    // #[serde(untagged)]
-    // enum Untagged<A, B> {
-    //     Unit,
-    //     Newtype(A),
-    //     Tuple(A, B),
-    //     Struct { a: A, b: B },
-    // }
-
-    // test_via_json(Untagged::Unit::<(), ()>);
-    // test_via_json(Untagged::Newtype::<_, ()>("newtype content".to_string()));
-    // test_via_json(Untagged::Tuple("tuple content".to_string(), 42.2));
-    // test_via_json(Untagged::Struct {
-    //     a: "struct content".to_string(),
-    //     b: 42.2,
-    // });
-
-
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
     #[serde(tag = "tag")]
     enum InternallyTagged<A, B> {
@@ -250,10 +247,14 @@ fn enums() {
         a: "struct content".to_string(),
         b: 42.2,
     });
-    
+
     test_enum! {
         #[serde(tag = "tag", content = "content")]
         AdjacentlyTagged
+    }
+    test_enum! {
+        #[serde(untagged)]
+        Untagged
     }
 }
 
