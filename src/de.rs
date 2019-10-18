@@ -239,6 +239,8 @@ impl<'de> de::Deserializer<'de> for Deserializer {
             visitor.visit_f64(v)
         } else if let Some(v) = self.value.as_string() {
             visitor.visit_string(v)
+        } else if self.value.is_object() {
+            self.deserialize_map(visitor)
         } else {
             self.invalid_type(visitor)
         }
