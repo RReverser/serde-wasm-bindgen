@@ -78,6 +78,7 @@ macro_rules! test_float {
 macro_rules! test_enum {
     ($(# $attr:tt)* $name:ident) => {{
         #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        $(# $attr)*
         enum $name<A, B> {
             Unit,
             Newtype(A),
@@ -214,17 +215,27 @@ fn enums() {
     test_enum! {
         ExternallyTagged
     }
-    test_enum! {
-        #[serde(tag = "tag")]
-        InternallyTagged
-    }
+    // test_enum! {
+    //     #[serde(untagged)]
+    //     Untagged
+    // }
+
+    // #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    // #[serde(tag = "tag")]
+    // enum InternallyTagged<A, B> {
+    //     Unit,
+    //     Struct { a: A, b: B },
+    // }
+
+    // test_via_json(InternallyTagged::Unit::<(), ()>);
+    // test_via_json(InternallyTagged::Struct {
+    //     a: "struct content".to_string(),
+    //     b: 42,
+    // });
+
     test_enum! {
         #[serde(tag = "tag", content = "content")]
         AdjacentlyTagged
-    }
-    test_enum! {
-        #[serde(untagged)]
-        Untagged
     }
 }
 
