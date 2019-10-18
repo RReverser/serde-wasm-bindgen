@@ -236,7 +236,11 @@ impl<'de> de::Deserializer<'de> for Deserializer {
         } else if let Some(v) = self.value.as_bool() {
             visitor.visit_bool(v)
         } else if let Some(v) = self.value.as_f64() {
-            visitor.visit_f64(v)
+            if js_sys::Number::is_safe_integer(&self.value) {
+                visitor.visit_i64(v as i64)
+            } else {
+                visitor.visit_f64(v)
+            }
         } else if let Some(v) = self.value.as_string() {
             visitor.visit_string(v)
         } else if self.value.is_object() {

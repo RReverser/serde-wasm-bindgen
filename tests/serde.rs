@@ -215,10 +215,24 @@ fn enums() {
     test_enum! {
         ExternallyTagged
     }
-    // test_enum! {
-    //     #[serde(untagged)]
-    //     Untagged
+
+    // #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    // #[serde(untagged)]
+    // enum Untagged<A, B> {
+    //     Unit,
+    //     Newtype(A),
+    //     Tuple(A, B),
+    //     Struct { a: A, b: B },
     // }
+
+    // test_via_json(Untagged::Unit::<(), ()>);
+    // test_via_json(Untagged::Newtype::<_, ()>("newtype content".to_string()));
+    // test_via_json(Untagged::Tuple("tuple content".to_string(), 42.2));
+    // test_via_json(Untagged::Struct {
+    //     a: "struct content".to_string(),
+    //     b: 42.2,
+    // });
+
 
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
     #[serde(tag = "tag")]
@@ -230,9 +244,13 @@ fn enums() {
     test_via_json(InternallyTagged::Unit::<(), ()>);
     test_via_json(InternallyTagged::Struct {
         a: "struct content".to_string(),
+        b: 42,
+    });
+    test_via_json(InternallyTagged::Struct {
+        a: "struct content".to_string(),
         b: 42.2,
     });
-
+    
     test_enum! {
         #[serde(tag = "tag", content = "content")]
         AdjacentlyTagged
