@@ -220,18 +220,18 @@ fn enums() {
     //     Untagged
     // }
 
-    // #[derive(Debug, PartialEq, Serialize, Deserialize)]
-    // #[serde(tag = "tag")]
-    // enum InternallyTagged<A, B> {
-    //     Unit,
-    //     Struct { a: A, b: B },
-    // }
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    #[serde(tag = "tag")]
+    enum InternallyTagged<A, B> {
+        Unit,
+        Struct { a: A, b: B },
+    }
 
-    // test_via_json(InternallyTagged::Unit::<(), ()>);
-    // test_via_json(InternallyTagged::Struct {
-    //     a: "struct content".to_string(),
-    //     b: 42,
-    // });
+    test_via_json(InternallyTagged::Unit::<(), ()>);
+    test_via_json(InternallyTagged::Struct {
+        a: "struct content".to_string(),
+        b: 42.2,
+    });
 
     test_enum! {
         #[serde(tag = "tag", content = "content")]
