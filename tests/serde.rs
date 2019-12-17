@@ -92,6 +92,7 @@ macro_rules! test_enum {
             Newtype(A),
             Tuple(A, B),
             Struct { a: A, b: B },
+            Sequence(Vec<A>),
         }
 
         test_via_json($name::Unit::<(), ()>);
@@ -101,6 +102,7 @@ macro_rules! test_enum {
             a: "struct content".to_string(),
             b: 42,
         });
+        test_via_json($name::<i32, ()>::Sequence(vec![52, 1, -124, 23, -65]));
     }};
 }
 
@@ -229,6 +231,7 @@ fn enums() {
     enum InternallyTagged<A, B> {
         Unit,
         Struct { a: A, b: B },
+        Sequence { seq: Vec<A> }
     }
 
     test_via_json(InternallyTagged::Unit::<(), ()>);
@@ -240,6 +243,7 @@ fn enums() {
         a: "struct content".to_string(),
         b: 42.2,
     });
+    test_via_json(InternallyTagged::<i32, ()>::Sequence { seq: vec![12, 41, -11, -65, 961] });
 
     test_enum! {
         #[serde(tag = "tag", content = "content")]
