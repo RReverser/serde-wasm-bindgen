@@ -28,18 +28,16 @@ fn assert_json<R>(lhs_value: JsValue, rhs: R)
 where
     R: Serialize + DeserializeOwned + PartialEq + Debug,
 {
-    if lhs_value.is_object() || lhs_value.is_string() || lhs_value.is_null() {
-        assert_eq!(
-            js_sys::JSON::stringify(&lhs_value).unwrap(),
-            serde_json::to_string(&rhs).unwrap(),
-        );
-    } else if lhs_value.is_undefined() {
+    if lhs_value.is_undefined() {
         assert_eq!(
             "null",
             serde_json::to_string(&rhs).unwrap()
         )
     } else {
-        unimplemented!("{:?} {:?}", lhs_value, rhs)
+        assert_eq!(
+            js_sys::JSON::stringify(&lhs_value).unwrap(),
+            serde_json::to_string(&rhs).unwrap(),
+        );
     }
 
     let restored_lhs: R = from_value(lhs_value.clone()).unwrap();
