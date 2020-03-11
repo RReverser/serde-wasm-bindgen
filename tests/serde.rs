@@ -94,9 +94,26 @@ fn assert_js_val_eq(a: &JsValue, b: &JsValue) {
     } else if a.is_string() {
         assert!(b.is_string());
         assert_eq!(a.as_string().unwrap(), b.as_string().unwrap());
+    } else if a.is_undefined() {
+        assert!(b.is_undefined());
     } else {
         todo!()
     }
+}
+
+fn assert_via_js_val<R>(lhs_value: JsValue, rhs: R)
+where
+    R: Serialize + DeserializeOwned + PartialEq + Debug,
+{
+    let restored_lhs: R = from_value(lhs_value.clone()).unwrap();
+    assert_eq!(restored_lhs, rhs, "from_value from {:?}", lhs_value);
+}
+
+fn test_via_js_val<T>(value: T)
+where
+    T: Serialize + DeserializeOwned + PartialEq + Debug,
+{
+    assert_via_js_val(to_value(&value).unwrap(), value);
 }
 
 macro_rules! test_unsigned {
@@ -140,6 +157,8 @@ macro_rules! test_enum {
             Newtype(A),
             Tuple(A, B),
             Struct { a: A, b: B },
+            Map(HashMap<A, B>),
+            Seq { seq: Vec<B> } // internal tags cannot be directly embedded in arrays
         }
 
         test_via_json($name::Unit::<String, i32>);
@@ -149,6 +168,21 @@ macro_rules! test_enum {
             a: "struct content".to_string(),
             b: 42,
         });
+        test_via_js_val($name::Map::<String, i32>(
+            vec![
+                ("a".to_string(), 12), 
+                ("abc".to_string(), -1161), 
+                ("b".to_string(), 64)
+            ].into_iter().collect()
+        ));
+        test_via_js_val($name::Map::<i32, i32>(
+            vec![
+                (54, 12), 
+                (2, -1161), 
+                (-51, 64)
+            ].into_iter().collect()
+        ));
+        test_via_js_val($name::Seq::<i32, f64> { seq: vec![5.4, 63.1, 0.2, -62.12, 6.0] });
     }};
 }
 
