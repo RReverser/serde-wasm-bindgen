@@ -1,11 +1,11 @@
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_wasm_bindgen::{from_value, to_value};
-use std::{hash::Hash, collections::{HashMap, HashSet}};
+use std::{hash::Hash, collections::{HashMap, BTreeMap, HashSet}};
 use std::fmt::Debug;
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_test::*;
-use js_sys::{Object, Map, Reflect};
+use js_sys::Reflect;
 
 fn test<L, R>(lhs: L, rhs: R)
 where
@@ -25,10 +25,39 @@ where
     test(value, value);
 }
 
+fn recurse_and_replace_maps(val: JsValue) -> Option<JsValue> {
+    if val.is_object() {
+        let obj = if js_sys::Map::instanceof(&val) {
+            js_sys::Object::from_entries(&js_sys::Array::from(&val)).unwrap()
+        } else {
+            val.unchecked_into()
+        };
+
+        for key in js_sys::Object::keys(&obj).values() {
+            let key = key.unwrap();
+            let val = Reflect::get(&obj, &key).unwrap();
+    
+            if let Some(replacement) = recurse_and_replace_maps(val) {
+                Reflect::set(&obj, &key, &replacement).unwrap();
+            }
+        }
+
+        Some(JsValue::from(obj))
+    } else {
+        None
+    }
+}
+
 fn assert_json<R>(lhs_value: JsValue, rhs: R)
 where
     R: Serialize + DeserializeOwned + PartialEq + Debug,
 {
+    let lhs_value = if let Some(replacement) = recurse_and_replace_maps(lhs_value.clone()) {
+        replacement
+    } else {
+        lhs_value
+    };
+
     if lhs_value.is_undefined() {
         assert_eq!(
             "null",
@@ -50,70 +79,6 @@ where
     T: Serialize + DeserializeOwned + PartialEq + Debug,
 {
     assert_json(to_value(&value).unwrap(), value);
-}
-
-fn assert_js_obj_eq(a: &Object, b: &Object) {
-    fn keys(obj: &Object) -> Vec<JsValue> {
-        if Map::instanceof(obj) {
-            obj.clone().unchecked_into::<Map>().keys().into_iter().map(|key| key.unwrap()).collect()
-        } else {
-            Object::keys(obj).values().into_iter().map(|key| key.unwrap()).collect()
-        }
-    }
-    
-    fn get(obj: &Object, key: &JsValue) -> JsValue {
-        if Map::instanceof(obj) {
-            obj.clone().unchecked_into::<Map>().get(key)
-        } else {
-            Reflect::get(obj, key).unwrap()
-        }
-    }
-
-    for key in keys(a) {
-        let a_val = get(a, &key);
-        let b_val = get(b, &key);
-
-        assert_js_val_eq(&a_val, &b_val);
-    }
-
-    for key in keys(b) {
-        let a_val = get(a, &key);
-        let b_val = get(b, &key);
-
-        assert_js_val_eq(&a_val, &b_val);
-    }
-}
-
-fn assert_js_val_eq(a: &JsValue, b: &JsValue) {
-    if a.is_object() {
-        assert!(b.is_object());
-        assert_js_obj_eq(a.dyn_ref::<Object>().unwrap(), b.dyn_ref::<Object>().unwrap());
-    } else if a.as_f64().is_some() {
-        assert!(b.as_f64().is_some());
-        assert_eq!(a.as_f64().unwrap(), b.as_f64().unwrap());
-    } else if a.is_string() {
-        assert!(b.is_string());
-        assert_eq!(a.as_string().unwrap(), b.as_string().unwrap());
-    } else if a.is_undefined() {
-        assert!(b.is_undefined());
-    } else {
-        todo!()
-    }
-}
-
-fn assert_via_js_val<R>(lhs_value: JsValue, rhs: R)
-where
-    R: Serialize + DeserializeOwned + PartialEq + Debug,
-{
-    let restored_lhs: R = from_value(lhs_value.clone()).unwrap();
-    assert_eq!(restored_lhs, rhs, "from_value from {:?}", lhs_value);
-}
-
-fn test_via_js_val<T>(value: T)
-where
-    T: Serialize + DeserializeOwned + PartialEq + Debug,
-{
-    assert_via_js_val(to_value(&value).unwrap(), value);
 }
 
 macro_rules! test_unsigned {
@@ -152,12 +117,12 @@ macro_rules! test_enum {
     ($(# $attr:tt)* $name:ident) => {{
         #[derive(Debug, PartialEq, Serialize, Deserialize)]
         $(# $attr)*
-        enum $name<A, B> where A: Debug + Hash + Eq {
+        enum $name<A, B> where A: Debug + Ord + Eq {
             Unit,
             Newtype(A),
             Tuple(A, B),
             Struct { a: A, b: B },
-            Map(HashMap<A, B>),
+            Map(BTreeMap<A, B>),
             Seq { seq: Vec<B> } // internal tags cannot be directly embedded in arrays
         }
 
@@ -168,21 +133,14 @@ macro_rules! test_enum {
             a: "struct content".to_string(),
             b: 42,
         });
-        test_via_js_val($name::Map::<String, i32>(
+        test_via_json($name::Map::<String, i32>(
             vec![
                 ("a".to_string(), 12), 
                 ("abc".to_string(), -1161), 
                 ("b".to_string(), 64)
             ].into_iter().collect()
         ));
-        test_via_js_val($name::Map::<i32, i32>(
-            vec![
-                (54, 12), 
-                (2, -1161), 
-                (-51, 64)
-            ].into_iter().collect()
-        ));
-        test_via_js_val($name::Seq::<i32, f64> { seq: vec![5.4, 63.1, 0.2, -62.12, 6.0] });
+        test_via_json($name::Seq::<i32, i32> { seq: vec![5, 63, 0, -62, 6] });
     }};
 }
 
@@ -339,13 +297,14 @@ fn enums() {
 fn test_externally_tagged_enum() {
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
     enum Test {
-        Seq(Vec<f64>),
-        Map(HashMap<String, i32>),
+        Seq(Vec<i32>),
+        Map(BTreeMap<String, i32>),
     }
 
-    assert_js_val_eq(
-        &to_value(&Test::Seq(vec![5.4, 63.1, 0.2, -62.12, 6.0])).unwrap(),
-        &js_sys::eval(r#"({ "Seq": [5.4, 63.1, 0.2, -62.12, 6.0] })"#).unwrap()
+    assert_json(
+
+        js_sys::eval(r#"({ "Seq": [5, 63, 0, -62, 6] })"#).unwrap(),
+        Test::Seq(vec![5, 63, 0, -62, 6]),
     );
 
     let map = Test::Map(
@@ -355,12 +314,10 @@ fn test_externally_tagged_enum() {
             ("b".to_string(), 64)
         ].into_iter().collect()
     );
-    let js_map = to_value(&map).unwrap();
-    assert_js_val_eq(
-        &js_map,
-        &js_sys::eval(r#"({ "Map": { "a": 12, "abc": -1161, "b": 64 } })"#).unwrap()
+    assert_json(
+        js_sys::eval(r#"({ "Map": { "a": 12, "abc": -1161, "b": 64 } })"#).unwrap(),
+        map
     );
-    assert_eq!(&map, &from_value::<Test>(js_map).unwrap());
 }
 
 #[wasm_bindgen_test]
@@ -368,17 +325,15 @@ fn test_internally_tagged_enum() {
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
     #[serde(tag = "kind")]
     enum Test {
-        Seq { seq: Vec<f64> },
-        Map(HashMap<String, i32>),
+        Seq { seq: Vec<i32> },
+        Map(BTreeMap<String, i32>),
     }
 
-    let seq = Test::Seq { seq: vec![5.4, 63.1, 0.2, -62.12, 6.0] };
-    let js_seq = to_value(&seq).unwrap();
-    assert_js_val_eq(
-        &js_seq,
-        &js_sys::eval(r#"({ kind: "Seq", seq: [5.4, 63.1, 0.2, -62.12, 6.0] })"#).unwrap()
+    let seq = Test::Seq { seq: vec![5, 63, 0, -62, 6] };
+    assert_json(
+        js_sys::eval(r#"({ kind: "Seq", seq: [5, 63, 0, -62, 6] })"#).unwrap(),
+        seq,
     );
-    assert_eq!(&seq, &from_value::<Test>(js_seq).unwrap());
 
     let map = Test::Map(
         vec![
@@ -387,12 +342,10 @@ fn test_internally_tagged_enum() {
             ("b".to_string(), 64)
         ].into_iter().collect()
     );
-    let js_map = to_value(&map).unwrap();
-    assert_js_val_eq(
-        &js_map,
-        &js_sys::eval(r#"({ "kind": "Map", "a": 12, "abc": -1161, "b": 64 })"#).unwrap()
+    assert_json(
+        js_sys::eval(r#"({ "kind": "Map", "a": 12, "abc": -1161, "b": 64 })"#).unwrap(),
+        map,
     );
-    assert_eq!(&map, &from_value::<Test>(js_map).unwrap());
 }
 
 #[wasm_bindgen_test]
@@ -400,17 +353,15 @@ fn test_adjacently_tagged_enum() {
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
     #[serde(tag = "kind", content = "content")]
     enum Test {
-        Seq(Vec<f64>),
-        Map(HashMap<String, i32>),
+        Seq(Vec<i32>),
+        Map(BTreeMap<String, i32>),
     }
 
-    let seq = Test::Seq(vec![5.4, 63.1, 0.2, -62.12, 6.0]);
-    let js_seq = to_value(&seq).unwrap();
-    assert_js_val_eq(
-        &js_seq,
-        &js_sys::eval(r#"({ kind: "Seq", content: [5.4, 63.1, 0.2, -62.12, 6.0] })"#).unwrap()
+    let seq = Test::Seq(vec![5, 63, 0, -62, 6]);
+    assert_json(
+        js_sys::eval(r#"({ kind: "Seq", content: [5, 63, 0, -62, 6] })"#).unwrap() ,
+        seq,
     );
-    assert_eq!(&seq, &from_value::<Test>(js_seq).unwrap());
 
     let map = Test::Map(
         vec![
@@ -419,12 +370,10 @@ fn test_adjacently_tagged_enum() {
             ("b".to_string(), 64)
         ].into_iter().collect()
     );
-    let js_map = to_value(&map).unwrap();
-    assert_js_val_eq(
-        &js_map,
-        &js_sys::eval(r#"({ kind: "Map", content: { "a": 12, "abc": -1161, "b": 64 } })"#).unwrap()
+    assert_json(
+        js_sys::eval(r#"({ kind: "Map", content: { "a": 12, "abc": -1161, "b": 64 } })"#).unwrap(),
+        map,
     );
-    assert_eq!(&map, &from_value::<Test>(js_map).unwrap());
 }
 
 #[wasm_bindgen_test]
