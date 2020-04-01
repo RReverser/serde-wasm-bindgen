@@ -266,10 +266,11 @@ fn enums() {
 
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
     #[serde(tag = "tag")]
-    enum InternallyTagged<A, B> {
+    enum InternallyTagged<A, B> where A: Ord {
         Unit,
         Struct { a: A, b: B },
-        Sequence { seq: Vec<A> }
+        Sequence { seq: Vec<A> },
+        Map(BTreeMap<A, B>)
     }
 
     test_via_json(InternallyTagged::Unit::<(), ()>);
@@ -282,6 +283,13 @@ fn enums() {
         b: 42.2,
     });
     test_via_json(InternallyTagged::<i32, ()>::Sequence { seq: vec![12, 41, -11, -65, 961] });
+    test_via_json(InternallyTagged::Map(
+        vec![
+            ("a".to_string(), 12), 
+            ("abc".to_string(), -1161), 
+            ("b".to_string(), 64)
+        ].into_iter().collect()
+    ));
 
     test_enum! {
         #[serde(tag = "tag", content = "content")]
@@ -291,89 +299,6 @@ fn enums() {
         #[serde(untagged)]
         Untagged
     }
-}
-
-#[wasm_bindgen_test]
-fn test_externally_tagged_enum() {
-    #[derive(Debug, PartialEq, Serialize, Deserialize)]
-    enum Test {
-        Seq(Vec<i32>),
-        Map(BTreeMap<String, i32>),
-    }
-
-    assert_json(
-
-        js_sys::eval(r#"({ "Seq": [5, 63, 0, -62, 6] })"#).unwrap(),
-        Test::Seq(vec![5, 63, 0, -62, 6]),
-    );
-
-    let map = Test::Map(
-        vec![
-            ("a".to_string(), 12), 
-            ("abc".to_string(), -1161), 
-            ("b".to_string(), 64)
-        ].into_iter().collect()
-    );
-    assert_json(
-        js_sys::eval(r#"({ "Map": { "a": 12, "abc": -1161, "b": 64 } })"#).unwrap(),
-        map
-    );
-}
-
-#[wasm_bindgen_test]
-fn test_internally_tagged_enum() {
-    #[derive(Debug, PartialEq, Serialize, Deserialize)]
-    #[serde(tag = "kind")]
-    enum Test {
-        Seq { seq: Vec<i32> },
-        Map(BTreeMap<String, i32>),
-    }
-
-    let seq = Test::Seq { seq: vec![5, 63, 0, -62, 6] };
-    assert_json(
-        js_sys::eval(r#"({ kind: "Seq", seq: [5, 63, 0, -62, 6] })"#).unwrap(),
-        seq,
-    );
-
-    let map = Test::Map(
-        vec![
-            ("a".to_string(), 12), 
-            ("abc".to_string(), -1161), 
-            ("b".to_string(), 64)
-        ].into_iter().collect()
-    );
-    assert_json(
-        js_sys::eval(r#"({ "kind": "Map", "a": 12, "abc": -1161, "b": 64 })"#).unwrap(),
-        map,
-    );
-}
-
-#[wasm_bindgen_test]
-fn test_adjacently_tagged_enum() {
-    #[derive(Debug, PartialEq, Serialize, Deserialize)]
-    #[serde(tag = "kind", content = "content")]
-    enum Test {
-        Seq(Vec<i32>),
-        Map(BTreeMap<String, i32>),
-    }
-
-    let seq = Test::Seq(vec![5, 63, 0, -62, 6]);
-    assert_json(
-        js_sys::eval(r#"({ kind: "Seq", content: [5, 63, 0, -62, 6] })"#).unwrap() ,
-        seq,
-    );
-
-    let map = Test::Map(
-        vec![
-            ("a".to_string(), 12), 
-            ("abc".to_string(), -1161), 
-            ("b".to_string(), 64)
-        ].into_iter().collect()
-    );
-    assert_json(
-        js_sys::eval(r#"({ kind: "Map", content: { "a": 12, "abc": -1161, "b": 64 } })"#).unwrap(),
-        map,
-    );
 }
 
 #[wasm_bindgen_test]
