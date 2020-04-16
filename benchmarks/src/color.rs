@@ -1,4 +1,5 @@
 use std::fmt;
+use std::mem::MaybeUninit;
 use std::{ptr, slice, str};
 
 use serde::de::{self, Deserialize, Deserializer, Unexpected};
@@ -18,8 +19,9 @@ const HEX_LUT: &'static [u8] = b"\
       E0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF";
 
 impl Color {
-    fn as_str<'a>(self, buf: &'a mut [u8; 6]) -> &'a str {
-        let buf_ptr = buf.as_mut_ptr();
+    fn as_str(self, buf: &mut MaybeUninit<[u8; 6]>) -> &str {
+        let buf_len = 6;
+        let buf_ptr = buf.as_mut_ptr() as *mut u8;
         let lut_ptr = HEX_LUT.as_ptr();
 
         let r = ((self.0 & 0xFF0000) >> 15) as isize;
@@ -31,7 +33,7 @@ impl Color {
             ptr::copy_nonoverlapping(lut_ptr.offset(g), buf_ptr.offset(2), 2);
             ptr::copy_nonoverlapping(lut_ptr.offset(b), buf_ptr.offset(4), 2);
 
-            str::from_utf8(slice::from_raw_parts(buf_ptr, buf.len())).unwrap()
+            str::from_utf8(slice::from_raw_parts(buf_ptr, buf_len)).unwrap()
         }
     }
 }
@@ -41,7 +43,7 @@ impl Serialize for Color {
     where
         S: Serializer,
     {
-        let mut buf: [u8; 6] = unsafe { ::std::mem::uninitialized() };
+        let mut buf = MaybeUninit::uninit();
         serializer.serialize_str(self.as_str(&mut buf))
     }
 }
@@ -77,7 +79,7 @@ impl<'de> Deserialize<'de> for Color {
 
 #[test]
 fn test_color() {
-    let mut buf: [u8; 6] = unsafe { ::std::mem::uninitialized() };
+    let mut buf = MaybeUninit::uninit();
     let string = Color(0xA0A0A0).as_str(&mut buf);
     assert_eq!(string, "A0A0A0");
 }
