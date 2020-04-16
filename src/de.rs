@@ -245,7 +245,19 @@ impl<'de> de::Deserializer<'de> for Deserializer {
             visitor.visit_string(v)
         } else if js_sys::Array::is_array(&self.value) {
             self.deserialize_seq(visitor)
-        } else if self.value.is_object() {
+        } else if self.value.is_object() &&
+            // The only reason we want to support objects here is because serde uses
+            // `deserialize_any` for internally tagged enums
+            // (see https://github.com/cloudflare/serde-wasm-bindgen/pull/4#discussion_r352245020).
+            //
+            // We expect such enums to be represented via plain JS objects, so let's explicitly
+            // exclude Sets, Maps and any other iterables. These should be deserialized via concrete
+            // `deserialize_*` methods instead of us trying to guess the right target type.
+            //
+            // Hopefully we can rid of these hacks altogether once
+            // https://github.com/serde-rs/serde/issues/1183 is implemented / fixed on serde side.
+            !js_sys::Reflect::has(&self.value, &js_sys::Symbol::iterator()).unwrap_or(false)
+        {
             self.deserialize_map(visitor)
         } else {
             self.invalid_type(visitor)
