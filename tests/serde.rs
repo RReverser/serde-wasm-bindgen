@@ -1,11 +1,14 @@
+use js_sys::Reflect;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_wasm_bindgen::{from_value, to_value};
-use std::{hash::Hash, collections::{HashMap, BTreeMap, HashSet}};
 use std::fmt::Debug;
+use std::{
+    collections::{BTreeMap, HashMap, HashSet},
+    hash::Hash,
+};
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_test::*;
-use js_sys::Reflect;
 
 fn test<L, R>(lhs: L, rhs: R)
 where
@@ -36,7 +39,7 @@ fn recurse_and_replace_maps(val: JsValue) -> Option<JsValue> {
         for key in js_sys::Object::keys(&obj).values() {
             let key = key.unwrap();
             let val = Reflect::get(&obj, &key).unwrap();
-    
+
             if let Some(replacement) = recurse_and_replace_maps(val) {
                 Reflect::set(&obj, &key, &replacement).unwrap();
             }
@@ -59,10 +62,7 @@ where
     };
 
     if lhs_value.is_undefined() {
-        assert_eq!(
-            "null",
-            serde_json::to_string(&rhs).unwrap()
-        )
+        assert_eq!("null", serde_json::to_string(&rhs).unwrap())
     } else {
         assert_eq!(
             js_sys::JSON::stringify(&lhs_value).unwrap(),
@@ -135,8 +135,8 @@ macro_rules! test_enum {
         });
         test_via_json($name::Map::<String, i32>(
             vec![
-                ("a".to_string(), 12), 
-                ("abc".to_string(), -1161), 
+                ("a".to_string(), 12),
+                ("abc".to_string(), -1161),
                 ("b".to_string(), 64)
             ].into_iter().collect()
         ));
@@ -266,11 +266,14 @@ fn enums() {
 
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
     #[serde(tag = "tag")]
-    enum InternallyTagged<A, B> where A: Ord {
+    enum InternallyTagged<A, B>
+    where
+        A: Ord,
+    {
         Unit,
         Struct { a: A, b: B },
         Sequence { seq: Vec<A> },
-        Map(BTreeMap<A, B>)
+        Map(BTreeMap<A, B>),
     }
 
     test_via_json(InternallyTagged::Unit::<(), ()>);
@@ -282,13 +285,17 @@ fn enums() {
         a: "struct content".to_string(),
         b: 42.2,
     });
-    test_via_json(InternallyTagged::<i32, ()>::Sequence { seq: vec![12, 41, -11, -65, 961] });
+    test_via_json(InternallyTagged::<i32, ()>::Sequence {
+        seq: vec![12, 41, -11, -65, 961],
+    });
     test_via_json(InternallyTagged::Map(
         vec![
-            ("a".to_string(), 12), 
-            ("abc".to_string(), -1161), 
-            ("b".to_string(), 64)
-        ].into_iter().collect()
+            ("a".to_string(), 12),
+            ("abc".to_string(), -1161),
+            ("b".to_string(), 64),
+        ]
+        .into_iter()
+        .collect(),
     ));
 
     test_enum! {
