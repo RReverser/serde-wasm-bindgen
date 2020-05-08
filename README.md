@@ -46,6 +46,9 @@ Supported types and values for the deserialization:
  - `char` from a JavaScript string containing a single codepoint.
  - `String` from any JavaScript string.
  - Rust map (`HashMap`, `BTreeMap`, ...) from any JavaScript iterable producing `[key, value]` pairs (including but not limited to ES2015 `Map`).
+   > One exception being [internally tagged](https://serde.rs/enum-representations.html#internally-tagged) and [untagged](https://serde.rs/enum-representations.html#untagged) enums. These representations currently do not support deserializing map-like iterables. They only support deserialization from `Object` due to their special treatment in `serde`. 
+   >
+   > This restriction may be lifted at some point in the future if a `serde(with = ...)` attribute can define the expected Javascript representation of the variant, or if serde-rs/serde#1183 gets resolved.
  - `HashMap<String, _>` from any plain JavaScript object (`{ key1: value1, ... }`).
  - Rust sequence (tuple, `Vec`, `HashSet`, ...) from any JavaScript iterable (including but not limited to `Array`, ES2015 `Set`, etc.).
  - Rust byte buffer (see [`serde_bytes`](https://github.com/serde-rs/bytes)) from JavaScript `ArrayBuffer` or `Uint8Array`.
