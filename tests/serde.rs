@@ -10,6 +10,8 @@ use std::{
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_test::*;
 
+wasm_bindgen_test_configure!(run_in_browser);
+
 fn test<L, R>(lhs: L, rhs: R)
 where
     L: Serialize + DeserializeOwned + PartialEq + Debug,
