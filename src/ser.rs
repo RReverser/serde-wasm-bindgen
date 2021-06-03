@@ -384,6 +384,7 @@ impl<'s> ser::Serializer for &'s Serializer {
         ))
     }
 
+    /// Serialises Rust maps into JS `Map`.
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
         Ok(MapSerializer::new(self, self.serialize_maps_as_objects))
     }

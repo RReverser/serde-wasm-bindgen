@@ -57,7 +57,7 @@ Supported types and values for the deserialization:
 
 Serialization is compatible with the deserialization, but it's limited to a single representation, so it chooses:
  - `undefined` for `()` or `None`.
- - ES2015 `Map` for Rust maps.
+ - ES2015 `Map` for Rust maps (can be configured to use plain objects via `serialize_maps_as_objects(true)`).
  - `Array` for any Rust sequences.
  - `Uint8Array` for byte buffers.
  - Plain JavaScript object for typed Rust structures.
