@@ -130,14 +130,16 @@ pub struct MapSerializer<'s> {
     serializer: &'s Serializer,
     target: Map,
     next_key: Option<JsValue>,
+    as_object: bool,
 }
 
 impl<'s> MapSerializer<'s> {
-    pub fn new(serializer: &'s Serializer) -> Self {
+    pub fn new(serializer: &'s Serializer, as_object: bool) -> Self {
         Self {
             serializer,
             target: Map::new(),
             next_key: None,
+            as_object,
         }
     }
 }
@@ -162,7 +164,14 @@ impl ser::SerializeMap for MapSerializer<'_> {
 
     fn end(self) -> Result {
         debug_assert!(self.next_key.is_none());
-        Ok(self.target.into())
+        if self.as_object {
+            Ok(
+                js_sys::Object::from_entries(&Array::from(&self.target.entries().into()).into())?
+                    .into(),
+            )
+        } else {
+            Ok(self.target.into())
+        }
     }
 }
 
@@ -202,12 +211,18 @@ impl ser::SerializeStruct for ObjectSerializer<'_> {
 /// A [`serde::Serializer`] that converts supported Rust values into a [`JsValue`].
 // Serializer might be configurable in the future, so add but hide its implementation details.
 #[derive(Default)]
-pub struct Serializer(());
+pub struct Serializer {
+    serialize_maps_as_objects: bool,
+}
 
 impl Serializer {
     /// Creates a new default [`Serializer`].
     pub fn new() -> Self {
         Default::default()
+    }
+
+    pub fn serialize_maps_as_objects(&mut self, value: bool) {
+        self.serialize_maps_as_objects = value;
     }
 }
 
@@ -366,13 +381,8 @@ impl<'s> ser::Serializer for &'s Serializer {
         ))
     }
 
-    /// Serialises Rust maps into JS `Map`.
-    // TODO: We might want to support serialising maps with string keys to JS objects.
-    // They are tricky to detect until Rust stabilises specialisation support.
-    // Additionally, even if we can detect it, we might still choose to use the more
-    // efficient `Map`, so this has to be a configuration option.
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
-        Ok(MapSerializer::new(self))
+        Ok(MapSerializer::new(self, self.serialize_maps_as_objects))
     }
 
     /// Serialises Rust typed structs into plain JS objects.

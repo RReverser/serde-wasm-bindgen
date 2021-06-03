@@ -1,7 +1,7 @@
-use js_sys::Reflect;
+use js_sys::{Object, Reflect};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use serde_wasm_bindgen::{from_value, to_value};
+use serde_wasm_bindgen::{from_value, to_value, Serializer};
 use std::fmt::Debug;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -405,6 +405,37 @@ fn maps() {
     res.entries()
         .into_iter()
         .map(|kv| kv.unwrap())
+        .zip(src)
+        .for_each(|(lhs_kv, rhs_kv)| {
+            assert_json(lhs_kv, rhs_kv);
+        });
+}
+
+#[wasm_bindgen_test]
+fn maps_string_object() {
+    // #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+    // struct Struct<A, B> {
+    //     a: A,
+    //     b: B,
+    // }
+
+    let mut serializer = Serializer::new();
+    serializer.serialize_maps_as_objects(true);
+
+    let mut src = HashMap::new();
+    // src.insert("a", Struct {a: 2, b: "S"})
+    // src.insert("a", Struct {a: 2, b: "S"})
+    src.insert("a".to_string(), 123);
+    src.insert("b".to_string(), 123);
+
+    let res = src.serialize(&serializer).unwrap();
+
+    let res = res.dyn_into::<js_sys::Object>().unwrap();
+    assert_eq!(Object::entries(&res).length() as usize, src.len());
+
+    Object::entries(&res)
+        .to_vec()
+        .into_iter()
         .zip(src)
         .for_each(|(lhs_kv, rhs_kv)| {
             assert_json(lhs_kv, rhs_kv);
