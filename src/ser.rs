@@ -126,20 +126,27 @@ impl ser::SerializeTupleStruct for ArraySerializer<'_> {
     }
 }
 
+pub enum MapResult {
+    Map(Map),
+    Object(Object),
+}
+
 pub struct MapSerializer<'s> {
     serializer: &'s Serializer,
-    target: Map,
+    target: MapResult,
     next_key: Option<JsValue>,
-    as_object: bool,
 }
 
 impl<'s> MapSerializer<'s> {
     pub fn new(serializer: &'s Serializer, as_object: bool) -> Self {
         Self {
             serializer,
-            target: Map::new(),
+            target: if as_object {
+                MapResult::Object(Object::new())
+            } else {
+                MapResult::Map(Map::new())
+            },
             next_key: None,
-            as_object,
         }
     }
 }
@@ -155,22 +162,26 @@ impl ser::SerializeMap for MapSerializer<'_> {
     }
 
     fn serialize_value<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
-        self.target.set(
-            &self.next_key.take().unwrap(),
-            &value.serialize(self.serializer)?,
-        );
+        match self.target {
+            MapResult::Map(ref map) => {
+                map.set(
+                    &self.next_key.take().unwrap(),
+                    &value.serialize(self.serializer)?,
+                );
+            }
+            MapResult::Object(ref object) => object.set(
+                self.next_key.take().unwrap(),
+                value.serialize(self.serializer)?,
+            ),
+        }
         Ok(())
     }
 
     fn end(self) -> Result {
         debug_assert!(self.next_key.is_none());
-        if self.as_object {
-            Ok(
-                js_sys::Object::from_entries(&Array::from(&self.target.entries().into()).into())?
-                    .into(),
-            )
-        } else {
-            Ok(self.target.into())
+        match self.target {
+            MapResult::Map(map) => Ok(map.into()),
+            MapResult::Object(object) => Ok(object.into()),
         }
     }
 }
@@ -221,7 +232,7 @@ impl Serializer {
         Default::default()
     }
 
-    /// Set to `true` to serialize maps into plain JavaScript objects instead of 
+    /// Set to `true` to serialize maps into plain JavaScript objects instead of
     /// ES2015 `Map`s. False by default.
     pub fn serialize_maps_as_objects(mut self, value: bool) -> Self {
         self.serialize_maps_as_objects = value;
