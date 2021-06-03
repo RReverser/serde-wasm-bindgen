@@ -221,8 +221,11 @@ impl Serializer {
         Default::default()
     }
 
-    pub fn serialize_maps_as_objects(&mut self, value: bool) {
+    /// Set to `true` to serialize maps into plain JavaScript objects instead of 
+    /// ES2015 `Map`s. False by default.
+    pub fn serialize_maps_as_objects(mut self, value: bool) -> Self {
         self.serialize_maps_as_objects = value;
+        self
     }
 }
 

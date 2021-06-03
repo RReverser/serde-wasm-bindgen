@@ -1,4 +1,4 @@
-use js_sys::{Object, Reflect};
+use js_sys::Reflect;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_wasm_bindgen::{from_value, to_value, Serializer};
@@ -413,27 +413,36 @@ fn maps() {
 
 #[wasm_bindgen_test]
 fn maps_string_object() {
-    // #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
-    // struct Struct<A, B> {
-    //     a: A,
-    //     b: B,
-    // }
+    #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+    struct Struct<A, B> {
+        a: A,
+        b: B,
+    }
 
-    let mut serializer = Serializer::new();
-    serializer.serialize_maps_as_objects(true);
+    let serializer = Serializer::new().serialize_maps_as_objects(true);
 
     let mut src = HashMap::new();
-    // src.insert("a", Struct {a: 2, b: "S"})
-    // src.insert("a", Struct {a: 2, b: "S"})
-    src.insert("a".to_string(), 123);
-    src.insert("b".to_string(), 123);
+    src.insert(
+        "a".to_string(),
+        Struct {
+            a: 2,
+            b: "S".to_string(),
+        },
+    );
+    src.insert(
+        "a".to_string(),
+        Struct {
+            a: 3,
+            b: "T".to_string(),
+        },
+    );
 
     let res = src.serialize(&serializer).unwrap();
 
     let res = res.dyn_into::<js_sys::Object>().unwrap();
-    assert_eq!(Object::entries(&res).length() as usize, src.len());
+    assert_eq!(js_sys::Object::entries(&res).length() as usize, src.len());
 
-    Object::entries(&res)
+    js_sys::Object::entries(&res)
         .to_vec()
         .into_iter()
         .zip(src)
