@@ -430,7 +430,7 @@ fn maps_string_object() {
         },
     );
     src.insert(
-        "a".to_string(),
+        "b".to_string(),
         Struct {
             a: 3,
             b: "T".to_string(),
@@ -442,11 +442,5 @@ fn maps_string_object() {
     let res = res.dyn_into::<js_sys::Object>().unwrap();
     assert_eq!(js_sys::Object::entries(&res).length() as usize, src.len());
 
-    js_sys::Object::entries(&res)
-        .to_vec()
-        .into_iter()
-        .zip(src)
-        .for_each(|(lhs_kv, rhs_kv)| {
-            assert_json(lhs_kv, rhs_kv);
-        });
+    assert_json(res.into(), src);
 }
