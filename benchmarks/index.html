@@ -1,7 +1,3 @@
-<script src="https://unpkg.com/text-encoding/lib/encoding.js"></script>
-<script src="https://unpkg.com/lodash"></script>
-<script src="https://unpkg.com/benchmark"></script>
-<script src="pkg/serde_wasm_bindgen_benches.js"></script>
 <select id="suite">
 	<option value="parse">Parse</option>
 	<option value="serialize">Serialize</option>
@@ -9,8 +5,15 @@
 <input type="button" id="run" disabled value="Run" />
 <input type="button" id="singleRun" disabled value="Single run" />
 <pre id="output"></pre>
-<script>
-	const benches = wasm_bindgen('pkg/serde_wasm_bindgen_benches_bg.wasm').then(() => wasm_bindgen);
+<script type="module">
+	import 'https://unpkg.com/lodash';
+	import 'https://unpkg.com/benchmark';
+
+	const benches = (async () => {
+		const benches = await import('./pkg/serde_wasm_bindgen_benches.js');
+		await benches.default();
+		return benches;
+	})();
 
 	const inputs = ['canada', 'citm_catalog', 'twitter'].map(async input => {
 		const res = await fetch(`${input}.json`);
