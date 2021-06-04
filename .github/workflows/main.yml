@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install Rust
+        uses: hecrj/setup-rust-action@v1
+        with:
+          components: clippy,rustfmt
+      - uses: jetli/wasm-pack-action@v0.3.0
+      - name: Run tests in Chrome
+        run: wasm-pack test --headless --chrome
+      - name: Run tests in Firefox
+        run: wasm-pack test --headless --firefox
+      - name: Clippy checks
+        run: cargo clippy --all-targets -- -D warnings
+      - name: Formatting check
+        run: cargo fmt -- --check
