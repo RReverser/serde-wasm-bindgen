@@ -229,7 +229,6 @@ impl ser::SerializeStruct for ObjectSerializer<'_> {
 }
 
 /// A [`serde::Serializer`] that converts supported Rust values into a [`JsValue`].
-// Serializer might be configurable in the future, so add but hide its implementation details.
 #[derive(Default)]
 pub struct Serializer {
     serialize_maps_as_objects: bool,
@@ -242,7 +241,7 @@ impl Serializer {
     }
 
     /// Set to `true` to serialize maps into plain JavaScript objects instead of
-    /// ES2015 `Map`s. False by default.
+    /// ES2015 `Map`s. `false` by default.
     pub fn serialize_maps_as_objects(mut self, value: bool) -> Self {
         self.serialize_maps_as_objects = value;
         self
