@@ -1,8 +1,8 @@
 use js_sys::Reflect;
 use serde::de::DeserializeOwned;
+use serde::ser::Error as SerError;
 use serde::{Deserialize, Serialize};
 use serde_wasm_bindgen::{from_value, to_value, Error, Serializer};
-use serde::ser::{Error as SerError};
 use std::fmt::Debug;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
