@@ -1,6 +1,7 @@
 use js_sys::{Array, JsString, Map, Uint8Array};
 use serde::ser::{self, Error as _, Serialize};
 use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsCast;
 
 use super::{static_str_to_js, Error};
 
@@ -126,17 +127,26 @@ impl ser::SerializeTupleStruct for ArraySerializer<'_> {
     }
 }
 
+pub enum MapResult {
+    Map(Map),
+    Object(js_sys::Object),
+}
+
 pub struct MapSerializer<'s> {
     serializer: &'s Serializer,
-    target: Map,
+    target: MapResult,
     next_key: Option<JsValue>,
 }
 
 impl<'s> MapSerializer<'s> {
-    pub fn new(serializer: &'s Serializer) -> Self {
+    pub fn new(serializer: &'s Serializer, as_object: bool) -> Self {
         Self {
             serializer,
-            target: Map::new(),
+            target: if as_object {
+                MapResult::Object(js_sys::Object::new())
+            } else {
+                MapResult::Map(Map::new())
+            },
             next_key: None,
         }
     }
@@ -148,21 +158,40 @@ impl ser::SerializeMap for MapSerializer<'_> {
 
     fn serialize_key<T: ?Sized + Serialize>(&mut self, key: &T) -> Result<()> {
         debug_assert!(self.next_key.is_none());
-        self.next_key = Some(key.serialize(self.serializer)?);
+        let next_key = key.serialize(self.serializer)?;
+        if let MapResult::Object(_) = self.target {
+            if !next_key.is_string() {
+                return Err(Error::custom(
+                    "Map key is not a string and cannot be an object key",
+                ));
+            }
+        }
+
+        self.next_key = Some(next_key);
         Ok(())
     }
 
     fn serialize_value<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
-        self.target.set(
-            &self.next_key.take().unwrap(),
-            &value.serialize(self.serializer)?,
-        );
+        let key = self.next_key.take().unwrap();
+        let value_ser = value.serialize(self.serializer)?;
+        match &self.target {
+            MapResult::Map(map) => {
+                map.set(&key, &value_ser);
+            }
+            MapResult::Object(object) => {
+                let obj: &Object = object.unchecked_ref();
+                obj.set(key, value_ser);
+            }
+        }
         Ok(())
     }
 
     fn end(self) -> Result {
         debug_assert!(self.next_key.is_none());
-        Ok(self.target.into())
+        match self.target {
+            MapResult::Map(map) => Ok(map.into()),
+            MapResult::Object(object) => Ok(object.into()),
+        }
     }
 }
 
@@ -200,14 +229,22 @@ impl ser::SerializeStruct for ObjectSerializer<'_> {
 }
 
 /// A [`serde::Serializer`] that converts supported Rust values into a [`JsValue`].
-// Serializer might be configurable in the future, so add but hide its implementation details.
 #[derive(Default)]
-pub struct Serializer(());
+pub struct Serializer {
+    serialize_maps_as_objects: bool,
+}
 
 impl Serializer {
     /// Creates a new default [`Serializer`].
     pub fn new() -> Self {
         Default::default()
+    }
+
+    /// Set to `true` to serialize maps into plain JavaScript objects instead of
+    /// ES2015 `Map`s. `false` by default.
+    pub fn serialize_maps_as_objects(mut self, value: bool) -> Self {
+        self.serialize_maps_as_objects = value;
+        self
     }
 }
 
@@ -366,13 +403,9 @@ impl<'s> ser::Serializer for &'s Serializer {
         ))
     }
 
-    /// Serialises Rust maps into JS `Map`.
-    // TODO: We might want to support serialising maps with string keys to JS objects.
-    // They are tricky to detect until Rust stabilises specialisation support.
-    // Additionally, even if we can detect it, we might still choose to use the more
-    // efficient `Map`, so this has to be a configuration option.
+    /// Serialises Rust maps into JS `Map` or plain JS objects, depending on configuration of `serialize_maps_as_objects`.
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
-        Ok(MapSerializer::new(self))
+        Ok(MapSerializer::new(self, self.serialize_maps_as_objects))
     }
 
     /// Serialises Rust typed structs into plain JS objects.
