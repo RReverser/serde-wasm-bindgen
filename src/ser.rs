@@ -172,19 +172,15 @@ impl ser::SerializeMap for MapSerializer<'_> {
     }
 
     fn serialize_value<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
+        let key = self.next_key.take().unwrap();
+        let value_ser = value.serialize(self.serializer)?;
         match self.target {
             MapResult::Map(ref map) => {
-                map.set(
-                    &self.next_key.take().unwrap(),
-                    &value.serialize(self.serializer)?,
-                );
+                map.set(&key, &value_ser);
             }
             MapResult::Object(ref object) => {
                 let obj: &Object = object.unchecked_ref();
-                obj.set(
-                    self.next_key.take().unwrap(),
-                    value.serialize(self.serializer)?,
-                );
+                obj.set(key, value_ser);
             }
         }
         Ok(())
