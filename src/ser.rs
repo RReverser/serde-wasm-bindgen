@@ -1,6 +1,7 @@
 use js_sys::{Array, JsString, Map, Uint8Array};
 use serde::ser::{self, Error as _, Serialize};
 use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsCast;
 
 use super::{static_str_to_js, Error};
 
@@ -128,7 +129,7 @@ impl ser::SerializeTupleStruct for ArraySerializer<'_> {
 
 pub enum MapResult {
     Map(Map),
-    Object(Object),
+    Object(js_sys::Object),
 }
 
 pub struct MapSerializer<'s> {
@@ -142,7 +143,7 @@ impl<'s> MapSerializer<'s> {
         Self {
             serializer,
             target: if as_object {
-                MapResult::Object(Object::new())
+                MapResult::Object(js_sys::Object::new())
             } else {
                 MapResult::Map(Map::new())
             },
@@ -178,10 +179,13 @@ impl ser::SerializeMap for MapSerializer<'_> {
                     &value.serialize(self.serializer)?,
                 );
             }
-            MapResult::Object(ref object) => object.set(
-                self.next_key.take().unwrap(),
-                value.serialize(self.serializer)?,
-            ),
+            MapResult::Object(ref object) => {
+                let obj: &Object = object.unchecked_ref();
+                obj.set(
+                    self.next_key.take().unwrap(),
+                    value.serialize(self.serializer)?,
+                );
+            }
         }
         Ok(())
     }
