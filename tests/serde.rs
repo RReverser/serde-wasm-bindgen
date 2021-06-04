@@ -1,7 +1,8 @@
 use js_sys::Reflect;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use serde_wasm_bindgen::{from_value, to_value, Serializer};
+use serde_wasm_bindgen::{from_value, to_value, Error, Serializer};
+use serde::ser::{Error as SerError};
 use std::fmt::Debug;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -412,7 +413,7 @@ fn maps() {
 }
 
 #[wasm_bindgen_test]
-fn maps_string_object() {
+fn maps_objects_string_key() {
     #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
     struct Struct<A, B> {
         a: A,
@@ -443,4 +444,44 @@ fn maps_string_object() {
     assert_eq!(js_sys::Object::entries(&res).length() as usize, src.len());
 
     assert_json(res.into(), src);
+}
+
+#[wasm_bindgen_test]
+fn maps_objects_object_key() {
+    #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+    struct Struct<A, B> {
+        a: A,
+        b: B,
+    }
+
+    let serializer = Serializer::new().serialize_maps_as_objects(true);
+
+    let mut src = HashMap::new();
+    src.insert(
+        Struct {
+            a: 1,
+            b: "smth".to_string(),
+        },
+        Struct {
+            a: 2,
+            b: "SMTH".to_string(),
+        },
+    );
+
+    src.insert(
+        Struct {
+            a: 42,
+            b: "something".to_string(),
+        },
+        Struct {
+            a: 84,
+            b: "SOMETHING".to_string(),
+        },
+    );
+
+    let res = src.serialize(&serializer).unwrap_err();
+    assert_eq!(
+        res.to_string(),
+        Error::custom("Map key is not a string and cannot be an object key").to_string()
+    );
 }

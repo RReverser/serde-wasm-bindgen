@@ -157,7 +157,16 @@ impl ser::SerializeMap for MapSerializer<'_> {
 
     fn serialize_key<T: ?Sized + Serialize>(&mut self, key: &T) -> Result<()> {
         debug_assert!(self.next_key.is_none());
-        self.next_key = Some(key.serialize(self.serializer)?);
+        let next_key = key.serialize(self.serializer)?;
+        if let MapResult::Object(_) = self.target {
+            if !next_key.is_string() {
+                return Err(Error::custom(
+                    "Map key is not a string and cannot be an object key",
+                ));
+            }
+        }
+
+        self.next_key = Some(next_key);
         Ok(())
     }
 
@@ -395,7 +404,7 @@ impl<'s> ser::Serializer for &'s Serializer {
         ))
     }
 
-    /// Serialises Rust maps into JS `Map`.
+    /// Serialises Rust maps into JS `Map` or plain JS objects, depending on configuration of `serialize_maps_as_objects`.
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
         Ok(MapSerializer::new(self, self.serialize_maps_as_objects))
     }
