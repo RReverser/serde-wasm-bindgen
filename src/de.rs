@@ -457,7 +457,10 @@ impl<'de> de::Deserializer<'de> for Deserializer {
         visitor.visit_map(map)
     }
 
-    /// Supports same input/output types as [`Self::deserialize_map`](#method.deserialize_map).
+    /// Supported inputs:
+    ///  - A plain JS object.
+    /// Supported outputs:
+    ///  - A typed Rust structure with `#[derive(Deserialize)]`.
     fn deserialize_struct<V: de::Visitor<'de>>(
         self,
         _name: &'static str,
