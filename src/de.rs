@@ -1,8 +1,8 @@
-use js_sys::{ArrayBuffer, JsString, Number, Object, Uint8Array};
+use js_sys::{Array, ArrayBuffer, JsString, Number, Object, Reflect, Symbol, Uint8Array};
 use serde::{de, serde_if_integer128};
 use wasm_bindgen::{JsCast, JsValue};
 
-use super::{static_str_to_js, Error, Result};
+use super::{static_str_to_js, Error, ObjectExt, Result};
 
 /// Provides [`de::SeqAccess`] from any JS iterator.
 struct SeqAccess {
@@ -37,7 +37,7 @@ impl<'de> de::MapAccess<'de> for MapAccess {
 
         Ok(match self.iter.next().transpose()? {
             Some(pair) => {
-                let (key, value) = convert_pair(pair)?;
+                let (key, value) = convert_pair(pair);
                 self.next_value = Some(value);
                 Some(seed.deserialize(key)?)
             }
@@ -58,7 +58,7 @@ impl<'de> de::MapAccess<'de> for MapAccess {
 
         Ok(match self.iter.next().transpose()? {
             Some(pair) => {
-                let (key, value) = convert_pair(pair)?;
+                let (key, value) = convert_pair(pair);
                 Some((kseed.deserialize(key)?, vseed.deserialize(value)?))
             }
             None => None,
@@ -67,7 +67,7 @@ impl<'de> de::MapAccess<'de> for MapAccess {
 }
 
 struct ObjectAccess {
-    obj: JsValue,
+    obj: ObjectExt,
     fields: &'static [&'static str],
 }
 
@@ -88,7 +88,7 @@ impl<'de> de::MapAccess<'de> for ObjectAccess {
     fn next_value_seed<V: de::DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value> {
         let (field, fields) = self.fields.split_first().unwrap();
         self.fields = fields;
-        let value = js_sys::Reflect::get(&self.obj, &static_str_to_js(field))?;
+        let value = self.obj.get(static_str_to_js(field));
         seed.deserialize(Deserializer::from(value))
     }
 
@@ -102,10 +102,7 @@ impl<'de> de::MapAccess<'de> for ObjectAccess {
                 self.fields = fields;
                 Some((
                     kseed.deserialize(str_deserializer(field))?,
-                    vseed.deserialize(Deserializer::from(js_sys::Reflect::get(
-                        &self.obj,
-                        &static_str_to_js(field),
-                    )?))?,
+                    vseed.deserialize(Deserializer::from(self.obj.get(static_str_to_js(field))))?,
                 ))
             }
             None => None,
@@ -143,17 +140,15 @@ impl From<JsValue> for Deserializer {
 }
 
 /// Destructures a JS `[key, value]` pair into a tuple of [`Deserializer`]s.
-fn convert_pair(pair: JsValue) -> Result<(Deserializer, Deserializer)> {
-    Ok((
-        js_sys::Reflect::get_u32(&pair, 0).map(Deserializer::from)?,
-        js_sys::Reflect::get_u32(&pair, 1).map(Deserializer::from)?,
-    ))
+fn convert_pair(pair: JsValue) -> (Deserializer, Deserializer) {
+    let pair = pair.unchecked_into::<Array>();
+    (pair.get(0).into(), pair.get(1).into())
 }
 
 impl Deserializer {
     /// Casts the internal value into an object, including support for prototype-less objects.
     /// See https://github.com/rustwasm/wasm-bindgen/issues/1366 for why we don't use `dyn_ref`.
-    fn as_object_entries(&self) -> Option<js_sys::Array> {
+    fn as_object_entries(&self) -> Option<Array> {
         if self.value.is_object() {
             Some(Object::entries(self.value.unchecked_ref()))
         } else {
@@ -236,14 +231,14 @@ impl<'de> de::Deserializer<'de> for Deserializer {
         } else if let Some(v) = self.value.as_bool() {
             visitor.visit_bool(v)
         } else if let Some(v) = self.value.as_f64() {
-            if js_sys::Number::is_safe_integer(&self.value) {
+            if Number::is_safe_integer(&self.value) {
                 visitor.visit_i64(v as i64)
             } else {
                 visitor.visit_f64(v)
             }
         } else if let Some(v) = self.value.as_string() {
             visitor.visit_string(v)
-        } else if js_sys::Array::is_array(&self.value) {
+        } else if Array::is_array(&self.value) {
             self.deserialize_seq(visitor)
         } else if self.value.is_object() &&
             // The only reason we want to support objects here is because serde uses
@@ -256,7 +251,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
             //
             // Hopefully we can rid of these hacks altogether once
             // https://github.com/serde-rs/serde/issues/1183 is implemented / fixed on serde side.
-            !js_sys::Reflect::has(&self.value, &js_sys::Symbol::iterator()).unwrap_or(false)
+            !Reflect::has(&self.value, &Symbol::iterator()).unwrap_or(false)
         {
             self.deserialize_map(visitor)
         } else {
@@ -412,7 +407,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     /// Supported outputs:
     ///  - Any Rust sequence from Serde point of view ([`Vec`], [`HashSet`](std::collections::HashSet), etc.)
     fn deserialize_seq<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        let iter = if let Some(arr) = self.value.dyn_ref::<js_sys::Array>() {
+        let iter = if let Some(arr) = self.value.dyn_ref::<Array>() {
             arr.values().into_iter()
         } else if let Some(iter) = js_sys::try_iter(&self.value)? {
             iter
@@ -467,10 +462,12 @@ impl<'de> de::Deserializer<'de> for Deserializer {
         fields: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value> {
-        let map = ObjectAccess {
-            obj: self.value,
-            fields,
+        let obj = if self.value.is_object() {
+            self.value.unchecked_into::<ObjectExt>()
+        } else {
+            return self.invalid_type(visitor);
         };
+        let map = ObjectAccess { obj, fields };
         visitor.visit_map(map)
     }
 
@@ -492,8 +489,8 @@ impl<'de> de::Deserializer<'de> for Deserializer {
             if entries.length() != 1 {
                 return Err(de::Error::invalid_length(entries.length() as _, &"1"));
             }
-            let entry = js_sys::Reflect::get_u32(&entries, 0)?;
-            let (tag, payload) = convert_pair(entry)?;
+            let entry = entries.get(0);
+            let (tag, payload) = convert_pair(entry);
             EnumAccess { tag, payload }
         } else {
             return self.invalid_type(visitor);

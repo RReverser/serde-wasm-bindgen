@@ -1,23 +1,11 @@
-use js_sys::{Array, JsString, Map, Uint8Array};
+use js_sys::{Array, JsString, Map, Object, Uint8Array};
 use serde::ser::{self, Error as _, Serialize};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
-use super::{static_str_to_js, Error};
+use super::{static_str_to_js, Error, ObjectExt};
 
 type Result<T = JsValue> = super::Result<T>;
-
-/// Custom bindings to avoid using fallible `Reflect` for plain objects.
-#[wasm_bindgen]
-extern "C" {
-    type Object;
-
-    #[wasm_bindgen(constructor)]
-    fn new() -> Object;
-
-    #[wasm_bindgen(method, indexing_setter)]
-    fn set(this: &Object, key: JsValue, value: JsValue);
-}
 
 /// Wraps other serializers into an enum tagged variant form.
 /// Uses {"Variant": ...payload...} for compatibility with serde-json.
@@ -34,7 +22,8 @@ impl<S> VariantSerializer<S> {
     fn end(self, inner: impl FnOnce(S) -> Result) -> Result {
         let value = inner(self.inner)?;
         let obj = Object::new();
-        obj.set(static_str_to_js(self.variant), value);
+        obj.unchecked_ref::<ObjectExt>()
+            .set(static_str_to_js(self.variant), value);
         Ok(obj.into())
     }
 }
@@ -129,7 +118,7 @@ impl ser::SerializeTupleStruct for ArraySerializer<'_> {
 
 pub enum MapResult {
     Map(Map),
-    Object(js_sys::Object),
+    Object(Object),
 }
 
 pub struct MapSerializer<'s> {
@@ -143,7 +132,7 @@ impl<'s> MapSerializer<'s> {
         Self {
             serializer,
             target: if as_object {
-                MapResult::Object(js_sys::Object::new())
+                MapResult::Object(Object::new())
             } else {
                 MapResult::Map(Map::new())
             },
@@ -179,8 +168,7 @@ impl ser::SerializeMap for MapSerializer<'_> {
                 map.set(&key, &value_ser);
             }
             MapResult::Object(object) => {
-                let obj: &Object = object.unchecked_ref();
-                obj.set(key, value_ser);
+                object.unchecked_ref::<ObjectExt>().set(key, value_ser);
             }
         }
         Ok(())
@@ -197,14 +185,14 @@ impl ser::SerializeMap for MapSerializer<'_> {
 
 pub struct ObjectSerializer<'s> {
     serializer: &'s Serializer,
-    target: Object,
+    target: ObjectExt,
 }
 
 impl<'s> ObjectSerializer<'s> {
     pub fn new(serializer: &'s Serializer) -> Self {
         Self {
             serializer,
-            target: Object::new(),
+            target: Object::new().unchecked_into::<ObjectExt>(),
         }
     }
 }

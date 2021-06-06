@@ -27,6 +27,18 @@ fn static_str_to_js(s: &'static str) -> JsValue {
     })
 }
 
+/// Custom bindings to avoid using fallible `Reflect` for plain objects.
+#[wasm_bindgen]
+extern "C" {
+    type ObjectExt;
+
+    #[wasm_bindgen(method, indexing_getter)]
+    fn get(this: &ObjectExt, key: JsValue) -> JsValue;
+
+    #[wasm_bindgen(method, indexing_setter)]
+    fn set(this: &ObjectExt, key: JsValue, value: JsValue);
+}
+
 /// Converts [`JsValue`] into a Rust type.
 pub fn from_value<T: serde::de::DeserializeOwned>(value: JsValue) -> Result<T> {
     T::deserialize(Deserializer::from(value))
