@@ -2,6 +2,7 @@
 #![cfg_attr(feature = "external_doc", doc(include = "../README.md"))]
 #![cfg_attr(feature = "external_doc", warn(missing_docs))]
 
+use js_sys::JsString;
 use wasm_bindgen::prelude::*;
 
 mod de;
@@ -14,15 +15,15 @@ pub use ser::Serializer;
 
 type Result<T> = std::result::Result<T, Error>;
 
-fn static_str_to_js(s: &'static str) -> JsValue {
+fn static_str_to_js(s: &'static str) -> JsString {
     thread_local! {
-        static CACHE: std::cell::RefCell<fnv::FnvHashMap<&'static str, JsValue>> = Default::default();
+        static CACHE: std::cell::RefCell<fnv::FnvHashMap<&'static str, JsString>> = Default::default();
     }
     CACHE.with(|cache| {
         cache
             .borrow_mut()
             .entry(s)
-            .or_insert_with(|| JsValue::from_str(s))
+            .or_insert_with(|| s.into())
             .clone()
     })
 }
@@ -33,10 +34,10 @@ extern "C" {
     type ObjectExt;
 
     #[wasm_bindgen(method, indexing_getter)]
-    fn get(this: &ObjectExt, key: JsValue) -> JsValue;
+    fn get(this: &ObjectExt, key: JsString) -> JsValue;
 
     #[wasm_bindgen(method, indexing_setter)]
-    fn set(this: &ObjectExt, key: JsValue, value: JsValue);
+    fn set(this: &ObjectExt, key: JsString, value: JsValue);
 }
 
 /// Converts [`JsValue`] into a Rust type.

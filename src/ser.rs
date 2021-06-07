@@ -147,16 +147,7 @@ impl ser::SerializeMap for MapSerializer<'_> {
 
     fn serialize_key<T: ?Sized + Serialize>(&mut self, key: &T) -> Result<()> {
         debug_assert!(self.next_key.is_none());
-        let next_key = key.serialize(self.serializer)?;
-        if let MapResult::Object(_) = self.target {
-            if !next_key.is_string() {
-                return Err(Error::custom(
-                    "Map key is not a string and cannot be an object key",
-                ));
-            }
-        }
-
-        self.next_key = Some(next_key);
+        self.next_key = Some(key.serialize(self.serializer)?);
         Ok(())
     }
 
@@ -168,6 +159,9 @@ impl ser::SerializeMap for MapSerializer<'_> {
                 map.set(&key, &value_ser);
             }
             MapResult::Object(object) => {
+                let key = key.dyn_into::<JsString>().map_err(|_| {
+                    Error::custom("Map key is not a string and cannot be an object key")
+                })?;
                 object.unchecked_ref::<ObjectExt>().set(key, value_ser);
             }
         }
@@ -339,7 +333,7 @@ impl<'s> ser::Serializer for &'s Serializer {
         _variant_index: u32,
         variant: &'static str,
     ) -> Result {
-        Ok(static_str_to_js(variant))
+        Ok(static_str_to_js(variant).into())
     }
 
     fn serialize_newtype_struct<T: ?Sized + Serialize>(
