@@ -17,3 +17,6 @@ crate-type = ["cdylib", "rlib"]
 [features]
 default = ["serde-json", "serde-wasm-bindgen"]
 serde-json = ["wasm-bindgen/serde-serialize"]
+
+[package.metadata.wasm-pack.profile.profiling]
+wasm-opt = ['-O', '-g']
