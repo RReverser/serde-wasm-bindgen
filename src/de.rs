@@ -172,12 +172,7 @@ impl Deserializer {
             return None;
         };
 
-        let mut vec = Vec::with_capacity(v.byte_length() as _);
-        unsafe {
-            vec.set_len(v.byte_length() as _);
-            v.copy_to(vec.as_mut_slice());
-        }
-        Some(vec)
+        Some(v.to_vec())
     }
 
     #[cold]
