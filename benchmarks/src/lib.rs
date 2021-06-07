@@ -26,6 +26,12 @@ pub fn init_console() {
     console_error_panic_hook::set_once();
 }
 
+// Like serde_wasm_bindgen_to_value but with JSON-like output (no Maps).
+fn serde_wasm_bindgen_to_value(value: &impl Serialize) -> Result<JsValue, serde_wasm_bindgen::Error> {
+    let serializer = serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
+    value.serialize(&serializer)
+}
+
 #[cfg(feature = "serde-wasm-bindgen")]
 #[wasm_bindgen]
 pub fn parse_canada_with_serde_wasm_bindgen(input: JsValue) -> Canada {
@@ -41,7 +47,7 @@ pub fn parse_canada_with_serde_json(input: JsValue) -> Canada {
 #[cfg(feature = "serde-wasm-bindgen")]
 #[wasm_bindgen]
 pub fn serialize_canada_with_serde_wasm_bindgen(input: &Canada) -> JsValue {
-    serde_wasm_bindgen::to_value(input).unwrap()
+    serde_wasm_bindgen_to_value(input).unwrap()
 }
 
 #[cfg(feature = "serde-json")]
@@ -65,7 +71,7 @@ pub fn parse_citm_catalog_with_serde_json(input: JsValue) -> CitmCatalog {
 #[cfg(feature = "serde-wasm-bindgen")]
 #[wasm_bindgen]
 pub fn serialize_citm_catalog_with_serde_wasm_bindgen(input: &CitmCatalog) -> JsValue {
-    serde_wasm_bindgen::to_value(input).unwrap()
+    serde_wasm_bindgen_to_value(input).unwrap()
 }
 
 #[cfg(feature = "serde-json")]
@@ -89,7 +95,7 @@ pub fn parse_twitter_with_serde_json(input: JsValue) -> Twitter {
 #[cfg(feature = "serde-wasm-bindgen")]
 #[wasm_bindgen]
 pub fn serialize_twitter_with_serde_wasm_bindgen(input: &Twitter) -> JsValue {
-    serde_wasm_bindgen::to_value(input).unwrap()
+    serde_wasm_bindgen_to_value(input).unwrap()
 }
 
 #[cfg(feature = "serde-json")]
