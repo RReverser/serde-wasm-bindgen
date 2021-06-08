@@ -19,5 +19,7 @@ jobs:
         run: wasm-pack test --headless --firefox
       - name: Clippy checks
         run: cargo clippy --all-targets -- -D warnings
-      - name: Formatting check
-        run: cargo fmt -- --check
+      - name: Format
+        run: cargo fmt
+      - name: Commit changes if any
+        uses: stefanzweifel/git-auto-commit-action@v4
