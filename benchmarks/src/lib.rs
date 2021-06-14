@@ -27,7 +27,9 @@ pub fn init_console() {
 }
 
 // Like serde_wasm_bindgen_to_value but with JSON-like output (no Maps).
-fn serde_wasm_bindgen_to_value(value: &impl Serialize) -> Result<JsValue, serde_wasm_bindgen::Error> {
+fn serde_wasm_bindgen_to_value(
+    value: &impl Serialize,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let serializer = serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
     value.serialize(&serializer)
 }
