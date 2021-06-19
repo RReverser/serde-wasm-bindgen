@@ -258,7 +258,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
         if self.is_nullish() {
             visitor.visit_unit()
         } else {
-            self.invalid_type(visitor)
+            self.deserialize_any(visitor)
         }
     }
 
@@ -274,7 +274,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
         if let Some(v) = self.value.as_bool() {
             visitor.visit_bool(v)
         } else {
-            self.invalid_type(visitor)
+            self.deserialize_any(visitor)
         }
     }
 
@@ -287,7 +287,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
         if let Some(v) = self.value.as_f64() {
             visitor.visit_f64(v)
         } else {
-            self.invalid_type(visitor)
+            self.deserialize_any(visitor)
         }
     }
 
@@ -303,7 +303,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
         if let Some(v) = self.value.as_string() {
             visitor.visit_string(v)
         } else {
-            self.invalid_type(visitor)
+            self.deserialize_any(visitor)
         }
     }
 
@@ -353,14 +353,14 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     fn deserialize_i64<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         match self.as_safe_integer() {
             Some(v) => visitor.visit_i64(v),
-            None => self.invalid_type(visitor),
+            None => self.deserialize_any(visitor),
         }
     }
 
     fn deserialize_u64<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         match self.as_safe_integer() {
             Some(v) if v >= 0 => visitor.visit_u64(v as _),
-            _ => self.invalid_type(visitor),
+            _ => self.deserialize_any(visitor),
         }
     }
 
@@ -375,7 +375,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
                 return visitor.visit_char(c);
             }
         }
-        self.invalid_type(visitor)
+        self.deserialize_any(visitor)
     }
 
     // Serde can deserialize `visit_unit` into `None`, but can't deserialize arbitrary value
@@ -407,7 +407,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
         } else if let Some(iter) = js_sys::try_iter(&self.value)? {
             iter
         } else {
-            return self.invalid_type(visitor);
+            return self.deserialize_any(visitor);
         };
         visitor.visit_seq(SeqAccess { iter })
     }
@@ -439,7 +439,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
                 Some(iter) => iter,
                 None => match self.as_object_entries() {
                     Some(entries) => entries.values().into_iter(),
-                    None => return self.invalid_type(visitor),
+                    None => return self.deserialize_any(visitor),
                 },
             },
             next_value: None,
@@ -460,7 +460,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
         let obj = if self.value.is_object() {
             self.value.unchecked_into::<ObjectExt>()
         } else {
-            return self.invalid_type(visitor);
+            return self.deserialize_any(visitor);
         };
         let map = ObjectAccess { obj, fields };
         visitor.visit_map(map)
@@ -488,7 +488,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
             let (tag, payload) = convert_pair(entry);
             EnumAccess { tag, payload }
         } else {
-            return self.invalid_type(visitor);
+            return self.deserialize_any(visitor);
         };
         visitor.visit_enum(access)
     }
@@ -513,7 +513,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
         if let Some(bytes) = self.as_bytes() {
             visitor.visit_byte_buf(bytes)
         } else {
-            self.invalid_type(visitor)
+            self.deserialize_any(visitor)
         }
     }
 

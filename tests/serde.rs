@@ -397,6 +397,47 @@ fn maps_objects_string_key() {
 }
 
 #[wasm_bindgen_test]
+fn serde_deserialize_with() {
+    fn string_bool<'de, D>(de: D) -> Result<bool, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        struct StringBool {}
+
+        impl<'de> serde::de::Visitor<'de> for StringBool {
+            type Value = bool;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                write!(formatter, "a string")
+            }
+
+            fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(v == "true")
+            }
+        }
+
+        de.deserialize_bool(StringBool {})
+    }
+
+    #[derive(Debug, Default, Deserialize, Serialize)]
+    pub struct Struct {
+        data: String,
+        #[serde(deserialize_with = "string_bool")]
+        str_bool: bool,
+    }
+
+    let json = r#"{ "data": "testing", "str_bool": "true" }"#;
+    let obj = js_sys::JSON::parse(json).unwrap();
+
+    let output: Struct = from_value(obj).unwrap();
+
+    assert!(output.str_bool);
+}
+
+#[wasm_bindgen_test]
 fn maps_objects_object_key() {
     #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
     struct Struct<A, B> {
