@@ -397,6 +397,23 @@ fn maps_objects_string_key() {
 }
 
 #[wasm_bindgen_test]
+fn serde_default_object() {
+    #[derive(Debug, Default, Deserialize, Serialize)]
+    pub struct Struct {
+        data: String,
+        #[serde(default)]
+        missing: bool,
+    }
+
+    let json = r#"{ "data": "testing" }"#;
+    let obj = js_sys::JSON::parse(json).unwrap();
+
+    let output: Struct = from_value(obj).unwrap();
+
+    assert!(!output.missing);
+}
+
+#[wasm_bindgen_test]
 fn maps_objects_object_key() {
     #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
     struct Struct<A, B> {

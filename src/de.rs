@@ -35,14 +35,17 @@ impl<'de> de::MapAccess<'de> for MapAccess {
     fn next_key_seed<K: de::DeserializeSeed<'de>>(&mut self, seed: K) -> Result<Option<K::Value>> {
         debug_assert!(self.next_value.is_none());
 
-        Ok(match self.iter.next().transpose()? {
-            Some(pair) => {
-                let (key, value) = convert_pair(pair);
+        // Loop until a defined value is found
+        while let Some(pair) = self.iter.next().transpose()? {
+            let (key, value) = convert_pair(pair);
+
+            if !value.is_undefined() {
                 self.next_value = Some(value);
-                Some(seed.deserialize(key)?)
+                return Ok(Some(seed.deserialize(key)?));
             }
-            None => None,
-        })
+        }
+
+        Ok(None)
     }
 
     fn next_value_seed<V: de::DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value> {
@@ -56,19 +59,22 @@ impl<'de> de::MapAccess<'de> for MapAccess {
     ) -> Result<Option<(K::Value, V::Value)>> {
         debug_assert!(self.next_value.is_none());
 
-        Ok(match self.iter.next().transpose()? {
-            Some(pair) => {
-                let (key, value) = convert_pair(pair);
-                Some((kseed.deserialize(key)?, vseed.deserialize(value)?))
+        while let Some(pair) = self.iter.next().transpose()? {
+            let (key, value) = convert_pair(pair);
+
+            if !value.is_undefined() {
+                return Ok(Some((kseed.deserialize(key)?, vseed.deserialize(value)?)));
             }
-            None => None,
-        })
+        }
+
+        Ok(None)
     }
 }
 
 struct ObjectAccess {
     obj: ObjectExt,
     fields: &'static [&'static str],
+    next_value: Option<Deserializer>,
 }
 
 fn str_deserializer(s: &str) -> de::value::StrDeserializer<Error> {
@@ -79,17 +85,26 @@ impl<'de> de::MapAccess<'de> for ObjectAccess {
     type Error = Error;
 
     fn next_key_seed<K: de::DeserializeSeed<'de>>(&mut self, seed: K) -> Result<Option<K::Value>> {
-        Ok(match self.fields.get(0) {
-            Some(&field) => Some(seed.deserialize(str_deserializer(field))?),
+        debug_assert!(self.next_value.is_none());
+
+        Ok(match self.fields.split_first() {
+            Some((field, fields)) => {
+                self.fields = fields;
+                let value = self.obj.get(static_str_to_js(field));
+                if value.is_undefined() {
+                    self.next_key_seed(seed)?
+                } else {
+                    self.next_value = Some(Deserializer::from(value));
+                    Some(seed.deserialize(str_deserializer(field))?)
+                }
+            }
             None => None,
         })
     }
 
     fn next_value_seed<V: de::DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value> {
-        let (field, fields) = self.fields.split_first().unwrap();
-        self.fields = fields;
-        let value = self.obj.get(static_str_to_js(field));
-        seed.deserialize(Deserializer::from(value))
+        let value = self.next_value.take().unwrap();
+        seed.deserialize(value)
     }
 
     fn next_entry_seed<K: de::DeserializeSeed<'de>, V: de::DeserializeSeed<'de>>(
@@ -97,13 +112,20 @@ impl<'de> de::MapAccess<'de> for ObjectAccess {
         kseed: K,
         vseed: V,
     ) -> Result<Option<(K::Value, V::Value)>> {
+        debug_assert!(self.next_value.is_none());
+
         Ok(match self.fields.split_first() {
             Some((&field, fields)) => {
                 self.fields = fields;
-                Some((
-                    kseed.deserialize(str_deserializer(field))?,
-                    vseed.deserialize(Deserializer::from(self.obj.get(static_str_to_js(field))))?,
-                ))
+                let value = self.obj.get(static_str_to_js(field));
+                if value.is_undefined() {
+                    self.next_entry_seed(kseed, vseed)?
+                } else {
+                    Some((
+                        kseed.deserialize(str_deserializer(field))?,
+                        vseed.deserialize(Deserializer::from(value))?,
+                    ))
+                }
             }
             None => None,
         })
@@ -154,6 +176,10 @@ impl Deserializer {
         } else {
             None
         }
+    }
+
+    fn is_undefined(&self) -> bool {
+        self.value.is_undefined()
     }
 
     fn is_nullish(&self) -> bool {
@@ -449,6 +475,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
 
     /// Supported inputs:
     ///  - A plain JS object.
+    ///  - A JS Map
     /// Supported outputs:
     ///  - A typed Rust structure with `#[derive(Deserialize)]`.
     fn deserialize_struct<V: de::Visitor<'de>>(
@@ -457,13 +484,17 @@ impl<'de> de::Deserializer<'de> for Deserializer {
         fields: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value> {
-        let obj = if self.value.is_object() {
-            self.value.unchecked_into::<ObjectExt>()
+        if self.value.is_object() {
+            let obj = self.value.unchecked_into::<ObjectExt>();
+            let map = ObjectAccess {
+                obj,
+                fields,
+                next_value: None,
+            };
+            visitor.visit_map(map)
         } else {
-            return self.invalid_type(visitor);
-        };
-        let map = ObjectAccess { obj, fields };
-        visitor.visit_map(map)
+            self.invalid_type(visitor)
+        }
     }
 
     /// Here we try to be compatible with `serde-json`, which means supporting:
