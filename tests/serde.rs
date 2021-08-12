@@ -176,7 +176,7 @@ fn numbers() {
 #[wasm_bindgen_test]
 fn strings() {
     fn test_str(s: &'static str) {
-        let value = to_value(&s).unwrap();
+        let value = to_value(s).unwrap();
         assert_eq!(value, s);
         let restored: String = from_value(value).unwrap();
         assert_eq!(s, restored);
