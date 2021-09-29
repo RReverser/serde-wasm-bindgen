@@ -256,44 +256,17 @@ impl<'s> ser::Serializer for &'s Serializer {
         serialize_i8(i8);
         serialize_i16(i16);
         serialize_i32(i32);
+        serialize_i64(i64);
 
         serialize_u8(u8);
         serialize_u16(u16);
         serialize_u32(u32);
+        serialize_u64(u64);
 
         serialize_f32(f32);
         serialize_f64(f64);
 
         serialize_str(&str);
-    }
-
-    // TODO: we might want to support `BigInt` here in the future.
-    fn serialize_i64(self, v: i64) -> Result {
-        const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
-        const MIN_SAFE_INTEGER: i64 = -MAX_SAFE_INTEGER;
-
-        if v >= MIN_SAFE_INTEGER && v <= MAX_SAFE_INTEGER {
-            self.serialize_f64(v as _)
-        } else {
-            Err(Error::custom(format_args!(
-                "{} can't be represented as a JavaScript number",
-                v
-            )))
-        }
-    }
-
-    // TODO: we might want to support `BigInt` here in the future.
-    fn serialize_u64(self, v: u64) -> Result {
-        const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
-
-        if v <= MAX_SAFE_INTEGER {
-            self.serialize_f64(v as _)
-        } else {
-            Err(Error::custom(format_args!(
-                "{} can't be represented as a JavaScript number",
-                v
-            )))
-        }
     }
 
     fn serialize_char(self, v: char) -> Result {
