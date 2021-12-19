@@ -145,28 +145,39 @@ fn numbers() {
     test_signed!(i32);
     test_unsigned!(u32);
 
+    test_signed!(i64);
     {
         const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
 
-        test_via_into(0_i64, 0_f64);
-        test_via_into(42_i64, 42_f64);
-        test_via_into(-42_i64, -42_f64);
-        test_via_into(MAX_SAFE_INTEGER, MAX_SAFE_INTEGER as f64);
-        test_via_into(-MAX_SAFE_INTEGER, -MAX_SAFE_INTEGER as f64);
-        to_value(&(MAX_SAFE_INTEGER + 1)).unwrap_err();
-        to_value(&-(MAX_SAFE_INTEGER + 1)).unwrap_err();
-        to_value(&std::i64::MIN).unwrap_err();
-        to_value(&std::i64::MAX).unwrap_err();
+        // u64 and i64 should serialize the same
+        test_via_into(0_i64, 0_u64);
+        test_via_into(42_i64, 42_u64);
+
+        // Js-numbers should not be de-serializable into 64 bit types
+        from_value::<i64>(JsValue::from_f64(1.0)).unwrap_err();
+        from_value::<i64>(JsValue::from_f64(-1.0)).unwrap_err();
+
+        // Test near max safe float
+        to_value(&(MAX_SAFE_INTEGER + 1)).unwrap();
+        to_value(&-(MAX_SAFE_INTEGER + 1)).unwrap();
+
+        // Handle extreme values
+        to_value(&std::i64::MIN).unwrap();
+        to_value(&std::i64::MAX).unwrap();
     }
 
+    test_unsigned!(u64);
     {
         const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 
-        test_via_into(0_u64, 0_f64);
-        test_via_into(42_u64, 42_f64);
-        test_via_into(MAX_SAFE_INTEGER, MAX_SAFE_INTEGER as f64);
-        to_value(&(MAX_SAFE_INTEGER + 1)).unwrap_err();
-        to_value(&std::u64::MAX).unwrap_err();
+        test_via_into(0_u64, 0_i64);
+        test_via_into(42_u64, 42_i64);
+
+        from_value::<u64>(JsValue::from_f64(1.0)).unwrap_err();
+
+        test_via_into(MAX_SAFE_INTEGER, MAX_SAFE_INTEGER as i64);
+        to_value(&(MAX_SAFE_INTEGER + 1)).unwrap();
+        to_value(&std::u64::MAX).unwrap();
     }
 
     test_float!(f32);
