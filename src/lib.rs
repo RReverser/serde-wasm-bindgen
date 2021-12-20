@@ -47,5 +47,27 @@ pub fn from_value<T: serde::de::DeserializeOwned>(value: JsValue) -> Result<T> {
 
 /// Converts a Rust value into a [`JsValue`].
 pub fn to_value<T: serde::ser::Serialize + ?Sized>(value: &T) -> Result<JsValue> {
-    value.serialize(&Serializer::new())
+    let ser = Serializer::new();
+    to_value_with(value, &ser)
+}
+
+/// Converts a Rust value into a [`JsValue`] via some custom [`Serializer`].
+///
+/// With this you can customize serialization behaviour, a la:
+///
+/// ```
+/// use serde_wasm_bindgen::Serializer;
+/// use std::collections::HashMap;
+/// use wasm_bindgen::JsValue;
+///
+/// fn as_objects(hm: &HashMap<String, usize>) -> Result<JsValue, serde_wasm_bindgen::Error> {
+///     let ser = Serializer::new().serialize_maps_as_objects(true);
+///     serde_wasm_bindgen::to_value_with(hm, &ser)
+/// }
+/// ```
+pub fn to_value_with<T: serde::ser::Serialize + ?Sized>(
+    value: &T,
+    ser: &Serializer,
+) -> Result<JsValue> {
+    value.serialize(ser)
 }
