@@ -39,23 +39,22 @@ natively in Wasm.
 To pass a Rust value to JavaScript, use:
 
 ```rust
-#[wasm_bindgen]
-pub fn pass_value_to_js() -> Result<JsValue, JsValue> {
-	// ...
-	serde_wasm_bindgen::to_value(&some_supported_rust_value)
+use wasm_bindgen::JsValue;
+use serde::Serialize;
+use serde_wasm_bindgen as swb;
+
+#[derive(Serialize)]
+struct Foo {
+  num: usize,
+}
+
+pub fn pass_value_to_js() -> Result<JsValue, swb::Error> {
+  let foo = Foo { num: 37 };
+  swb::to_value(&foo)
 }
 ```
 
-To retrieve a value from JavaScript:
-
-```rust
-#[wasm_bindgen]
-pub fn get_value_from_js(value: JsValue) -> Result<(), JsValue> {
-	let value: SomeSupportedRustType = serde_wasm_bindgen::from_value(value)?;
-	// ...
-	Ok(())
-}
-```
+Likewise, the `from_value` function can be used for deserialization.
 
 ## Supported Types
 
