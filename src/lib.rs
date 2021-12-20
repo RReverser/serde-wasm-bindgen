@@ -1,6 +1,30 @@
-#![cfg_attr(feature = "external_doc", feature(external_doc))]
-#![cfg_attr(feature = "external_doc", doc(include = "../README.md"))]
-#![cfg_attr(feature = "external_doc", warn(missing_docs))]
+//! An alternative to the built-in support within `wasm-bindgen` for converting
+//! Rust types into `JsValue`s. This alternative avoids the intermediate
+//! stringification of Rust values and thus is more efficient.
+//!
+//! # Usage
+//!
+//! To serialize a Rust value into a `JsValue`:
+//!
+//! ```
+//! use wasm_bindgen::JsValue;
+//! use serde::Serialize;
+//! use serde_wasm_bindgen as swb;
+//!
+//! #[derive(Serialize)]
+//! struct Foo {
+//!   num: usize,
+//! }
+//!
+//! pub fn pass_value_to_js() -> Result<JsValue, swb::Error> {
+//!   let foo = Foo { num: 37 };
+//!   swb::to_value(&foo)
+//! }
+//! ```
+//!
+//! Likewise, the [`from_value`] function can be used for deserialization.
+
+#![warn(missing_docs)]
 
 use js_sys::JsString;
 use wasm_bindgen::prelude::*;
