@@ -5,10 +5,10 @@
 use js_sys::JsString;
 use wasm_bindgen::prelude::*;
 
+mod bindings;
 mod de;
 mod error;
 mod ser;
-mod bindings;
 
 pub use de::Deserializer;
 pub use error::Error;

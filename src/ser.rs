@@ -1,8 +1,8 @@
+use crate::bindings;
 use js_sys::{Array, JsString, Map, Object, Uint8Array};
 use serde::ser::{self, Error as _, Serialize};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use crate::bindings;
 
 use super::{static_str_to_js, Error, ObjectExt};
 
@@ -215,7 +215,7 @@ impl ser::SerializeStruct for ObjectSerializer<'_> {
 #[derive(Default)]
 pub struct Serializer {
     serialize_maps_as_objects: bool,
-    serialize_64_bit_numbers_as_big_int:bool
+    serialize_64_bit_numbers_as_big_int: bool,
 }
 
 impl Serializer {
@@ -278,7 +278,7 @@ impl<'s> ser::Serializer for &'s Serializer {
 
     fn serialize_i64(self, v: i64) -> Result {
         if self.serialize_64_bit_numbers_as_big_int {
-            return Ok(bindings::from_i64(v).into())
+            return Ok(bindings::from_i64(v).into());
         }
         const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
         const MIN_SAFE_INTEGER: i64 = -MAX_SAFE_INTEGER;
@@ -294,7 +294,7 @@ impl<'s> ser::Serializer for &'s Serializer {
     }
     fn serialize_u64(self, v: u64) -> Result {
         if self.serialize_64_bit_numbers_as_big_int {
-            return Ok(bindings::from_u64(v).into())
+            return Ok(bindings::from_u64(v).into());
         }
 
         const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;

@@ -1,8 +1,8 @@
-use wasm_bindgen::prelude::*;
 use js_sys::BigInt;
+use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
-extern {
+extern "C" {
     #[wasm_bindgen(js_name = BigInt)]
     pub fn from_u64(x: u64) -> BigInt;
 

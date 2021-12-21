@@ -19,7 +19,7 @@ where
     test_via_into_with_config(lhs, rhs, &Serializer::new())
 }
 
-fn test_via_into_with_config<L, R>(lhs: L, rhs: R, serializer:&Serializer)
+fn test_via_into_with_config<L, R>(lhs: L, rhs: R, serializer: &Serializer)
 where
     L: Serialize + DeserializeOwned + PartialEq + Debug,
     R: Into<JsValue>,
@@ -194,8 +194,12 @@ fn numbers() {
         from_value::<i64>(JsValue::from_f64(-1.0)).unwrap();
 
         // Test near max safe float
-        (MAX_SAFE_INTEGER + 1).serialize(&big_int_serializer).unwrap();
-        (-(MAX_SAFE_INTEGER + 1)).serialize(&big_int_serializer).unwrap();
+        (MAX_SAFE_INTEGER + 1)
+            .serialize(&big_int_serializer)
+            .unwrap();
+        (-(MAX_SAFE_INTEGER + 1))
+            .serialize(&big_int_serializer)
+            .unwrap();
 
         // Handle extreme values
         std::i64::MIN.serialize(&big_int_serializer).unwrap();
@@ -210,8 +214,14 @@ fn numbers() {
 
         from_value::<u64>(JsValue::from_f64(1.0)).unwrap();
 
-        test_via_into_with_config(MAX_SAFE_INTEGER, MAX_SAFE_INTEGER as i64, &big_int_serializer);
-        (MAX_SAFE_INTEGER + 1).serialize(&big_int_serializer).unwrap();
+        test_via_into_with_config(
+            MAX_SAFE_INTEGER,
+            MAX_SAFE_INTEGER as i64,
+            &big_int_serializer,
+        );
+        (MAX_SAFE_INTEGER + 1)
+            .serialize(&big_int_serializer)
+            .unwrap();
         std::u64::MAX.serialize(&big_int_serializer).unwrap();
     }
 }

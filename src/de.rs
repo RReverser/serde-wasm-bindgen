@@ -1,9 +1,6 @@
-use js_sys::{Array, ArrayBuffer, BigInt, JsString, Number, Object, Reflect, Symbol, Uint8Array};
-use serde::{
-    de,
-    serde_if_integer128,
-};
 use crate::bindings;
+use js_sys::{Array, ArrayBuffer, JsString, Number, Object, Reflect, Symbol, Uint8Array};
+use serde::{de, serde_if_integer128};
 use wasm_bindgen::{JsCast, JsValue};
 
 use super::{static_str_to_js, Error, ObjectExt, Result};
@@ -217,14 +214,20 @@ impl Deserializer {
         None
     }
 
-    fn deserialize_from_js_number_signed<'de, V: de::Visitor<'de>>(&self, visitor: V) -> Result<V::Value> {
+    fn deserialize_from_js_number_signed<'de, V: de::Visitor<'de>>(
+        &self,
+        visitor: V,
+    ) -> Result<V::Value> {
         match self.as_safe_integer() {
             Some(v) => visitor.visit_i64(v),
             _ => self.invalid_type(visitor),
         }
     }
 
-    fn deserialize_from_js_number_unsigned<'de, V: de::Visitor<'de>>(&self, visitor: V) -> Result<V::Value> {
+    fn deserialize_from_js_number_unsigned<'de, V: de::Visitor<'de>>(
+        &self,
+        visitor: V,
+    ) -> Result<V::Value> {
         match self.as_safe_integer() {
             Some(v) if v >= 0 => visitor.visit_u64(v as _),
             _ => self.invalid_type(visitor),
@@ -368,18 +371,11 @@ impl<'de> de::Deserializer<'de> for Deserializer {
 
     fn deserialize_i64<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         if self.value.is_bigint() {
-            let big_int: BigInt = self.value.clone().into();
-            // Safe to do unwraps since we know the type is a bigint
-            let rust_string = big_int.to_string(10).unwrap().as_string().unwrap();
-    
-            match rust_string.parse() {
-                Ok(v) => visitor.visit_i64(v),
-                Err(_) => self.invalid_type(visitor),
-            }
+            let value = bindings::to_i64(self.value.into());
+            visitor.visit_i64(value)
         } else {
             self.deserialize_from_js_number_signed(visitor)
         }
-
     }
 
     fn deserialize_u64<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
