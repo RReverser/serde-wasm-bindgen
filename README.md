@@ -62,6 +62,9 @@ Serialization is compatible with the deserialization, but it's limited to a sing
  - `Uint8Array` for byte buffers.
  - Plain JavaScript object for typed Rust structures.
 
+## Features
+`bigint_serialization` - Serializes all `u64` and `i64` to JavaScript BigInts
+
 ## License
 
 Licensed under the MIT license. See the [LICENSE](LICENSE) file for details.

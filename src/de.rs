@@ -1,6 +1,6 @@
 use js_sys::{Array, ArrayBuffer, BigInt, JsString, Number, Object, Reflect, Symbol, Uint8Array};
 use serde::{
-    de::{self},
+    de,
     serde_if_integer128,
 };
 use wasm_bindgen::{JsCast, JsValue};
@@ -216,16 +216,16 @@ impl Deserializer {
         None
     }
 
-    fn deserialize_small_signed<'de, V: de::Visitor<'de>>(&self, visitor: V) -> Result<V::Value> {
+    fn deserialize_from_js_number_signed<'de, V: de::Visitor<'de>>(&self, visitor: V) -> Result<V::Value> {
         match self.as_safe_integer() {
-            Some(v) => visitor.visit_i32(v as _),
+            Some(v) => visitor.visit_i64(v),
             _ => self.invalid_type(visitor),
         }
     }
 
-    fn deserialize_small_unsigned<'de, V: de::Visitor<'de>>(&self, visitor: V) -> Result<V::Value> {
+    fn deserialize_from_js_number_unsigned<'de, V: de::Visitor<'de>>(&self, visitor: V) -> Result<V::Value> {
         match self.as_safe_integer() {
-            Some(v) if v >= 0 => visitor.visit_u32(v as _),
+            Some(v) if v >= 0 => visitor.visit_u64(v as _),
             _ => self.invalid_type(visitor),
         }
     }
@@ -328,15 +328,15 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     // these to 64-bit methods to save some space in the generated WASM.
 
     fn deserialize_i8<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.deserialize_small_signed(visitor)
+        self.deserialize_from_js_number_signed(visitor)
     }
 
     fn deserialize_i16<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.deserialize_small_signed(visitor)
+        self.deserialize_from_js_number_signed(visitor)
     }
 
     fn deserialize_i32<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.deserialize_small_signed(visitor)
+        self.deserialize_from_js_number_signed(visitor)
     }
 
     serde_if_integer128! {
@@ -348,15 +348,15 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     // Same as above, but for `i64`.
 
     fn deserialize_u8<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.deserialize_small_unsigned(visitor)
+        self.deserialize_from_js_number_unsigned(visitor)
     }
 
     fn deserialize_u16<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.deserialize_small_unsigned(visitor)
+        self.deserialize_from_js_number_unsigned(visitor)
     }
 
     fn deserialize_u32<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.deserialize_small_unsigned(visitor)
+        self.deserialize_from_js_number_unsigned(visitor)
     }
 
     serde_if_integer128! {
@@ -367,30 +367,33 @@ impl<'de> de::Deserializer<'de> for Deserializer {
 
     // Define real `i64` / `u64` deserializers that only work with bigints.
     fn deserialize_i64<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        if !self.value.is_bigint() {
-            return self.invalid_type(visitor);
+        if self.value.is_bigint() {
+            let big_int: BigInt = self.value.clone().into();
+            // Safe to do unwraps since we know the type is a bigint
+            let rust_string = big_int.to_string(10).unwrap().as_string().unwrap();
+    
+            match rust_string.parse() {
+                Ok(v) => visitor.visit_i64(v),
+                Err(_) => self.invalid_type(visitor),
+            }
+        } else {
+            self.deserialize_from_js_number_signed(visitor)
         }
-        let big_int: BigInt = self.value.clone().into();
-        // Safe to do unwraps since we know the type is a bigint
-        let rust_string = big_int.to_string(10).unwrap().as_string().unwrap();
 
-        match rust_string.parse() {
-            Ok(v) => visitor.visit_i64(v),
-            Err(_) => self.invalid_type(visitor),
-        }
     }
 
     fn deserialize_u64<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        if !self.value.is_bigint() {
-            return self.invalid_type(visitor);
-        }
-        let big_int: BigInt = self.value.clone().into();
-        // Safe to do unwraps since we know the type is a bigint
-        let rust_string = big_int.to_string(10).unwrap().as_string().unwrap();
-
-        match rust_string.parse() {
-            Ok(v) => visitor.visit_u64(v),
-            Err(_) => self.invalid_type(visitor),
+        if self.value.is_bigint() {
+            let big_int: BigInt = self.value.clone().into();
+            // Safe to do unwraps since we know the type is a bigint
+            let rust_string = big_int.to_string(10).unwrap().as_string().unwrap();
+    
+            match rust_string.parse() {
+                Ok(v) => visitor.visit_u64(v),
+                Err(_) => self.invalid_type(visitor),
+            }
+        } else {
+            self.deserialize_from_js_number_unsigned(visitor)
         }
     }
 

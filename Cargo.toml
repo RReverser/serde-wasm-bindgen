@@ -36,3 +36,4 @@ debug = true
 
 [features]
 external_doc = []
+bigint_serialization = []
