@@ -61,7 +61,7 @@ Serialization is compatible with the deserialization, but it's limited to a sing
  - `Array` for any Rust sequences.
  - `Uint8Array` for byte buffers.
  - Plain JavaScript object for typed Rust structures.
- - `Number` for `u64` & `i64` (Can be configured to use BigInt via `serialize_64_bit_numbers_as_big_int(true)`)
+ - JavaScript number type for any Rust numeric types. `u64` and `i64` can be configured to use `BigInt` instead via `serialize_64_bit_numbers_as_big_int(true)`.
 
 ## License
 
