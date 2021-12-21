@@ -2,6 +2,7 @@ use js_sys::{Array, JsString, Map, Object, Uint8Array};
 use serde::ser::{self, Error as _, Serialize};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
+use crate::bindings;
 
 use super::{static_str_to_js, Error, ObjectExt};
 
@@ -214,6 +215,7 @@ impl ser::SerializeStruct for ObjectSerializer<'_> {
 #[derive(Default)]
 pub struct Serializer {
     serialize_maps_as_objects: bool,
+    serialize_64_bit_numbers_as_big_int:bool
 }
 
 impl Serializer {
@@ -226,6 +228,13 @@ impl Serializer {
     /// ES2015 `Map`s. `false` by default.
     pub fn serialize_maps_as_objects(mut self, value: bool) -> Self {
         self.serialize_maps_as_objects = value;
+        self
+    }
+
+    /// Set to `true` to serialize 64 bit numbers to Javascript `BigInt` instead of
+    /// `Number`. `false` by default
+    pub fn serialize_64_bit_numbers_as_big_int(mut self, value: bool) -> Self {
+        self.serialize_64_bit_numbers_as_big_int = value;
         self
     }
 }
@@ -267,14 +276,10 @@ impl<'s> ser::Serializer for &'s Serializer {
         serialize_str(&str);
     }
 
-    #[cfg(feature="bigint_serialization")]
-    forward_to_into! {
-        serialize_u64(u64);
-        serialize_i64(i64);
-    }
-
-    #[cfg(not(feature="bigint_serialization"))]
     fn serialize_i64(self, v: i64) -> Result {
+        if self.serialize_64_bit_numbers_as_big_int {
+            return Ok(bindings::from_i64(v).into())
+        }
         const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
         const MIN_SAFE_INTEGER: i64 = -MAX_SAFE_INTEGER;
 
@@ -287,9 +292,11 @@ impl<'s> ser::Serializer for &'s Serializer {
             )))
         }
     }
-
-    #[cfg(not(feature="bigint_serialization"))]
     fn serialize_u64(self, v: u64) -> Result {
+        if self.serialize_64_bit_numbers_as_big_int {
+            return Ok(bindings::from_u64(v).into())
+        }
+
         const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 
         if v <= MAX_SAFE_INTEGER {

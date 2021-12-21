@@ -16,7 +16,15 @@ where
     L: Serialize + DeserializeOwned + PartialEq + Debug,
     R: Into<JsValue>,
 {
-    let lhs_value = to_value(&lhs).unwrap();
+    test_via_into_with_config(lhs, rhs, &Serializer::new())
+}
+
+fn test_via_into_with_config<L, R>(lhs: L, rhs: R, serializer:&Serializer)
+where
+    L: Serialize + DeserializeOwned + PartialEq + Debug,
+    R: Into<JsValue>,
+{
+    let lhs_value = lhs.serialize(serializer).unwrap();
     assert_eq!(lhs_value, rhs.into(), "to_value from {:?}", lhs);
     let restored_lhs = from_value(lhs_value.clone()).unwrap();
     assert_eq!(lhs, restored_lhs, "from_value from {:?}", lhs_value);
@@ -135,7 +143,7 @@ fn bool() {
 }
 
 #[wasm_bindgen_test]
-fn base_numbers() {
+fn numbers() {
     test_signed!(i8);
     test_unsigned!(u8);
 
@@ -147,11 +155,7 @@ fn base_numbers() {
 
     test_float!(f32);
     test_float!(f64);
-}
 
-#[wasm_bindgen_test]
-#[cfg(not(feature="bigint_serialization"))]
-fn default_64_bit_numbers() {
     {
         const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
 
@@ -175,44 +179,40 @@ fn default_64_bit_numbers() {
         to_value(&(MAX_SAFE_INTEGER + 1)).unwrap_err();
         to_value(&std::u64::MAX).unwrap_err();
     }
-}
 
-#[wasm_bindgen_test]
-#[cfg(feature="bigint_serialization")]
-fn bigint_numbers() {
-    test_signed!(i64);
+    let big_int_serializer = Serializer::new().serialize_64_bit_numbers_as_big_int(true);
+
     {
         const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
 
         // u64 and i64 should serialize the same
-        test_via_into(0_i64, 0_u64);
-        test_via_into(42_i64, 42_u64);
+        test_via_into_with_config(0_i64, 0_u64, &big_int_serializer);
+        test_via_into_with_config(42_i64, 42_u64, &big_int_serializer);
 
         // Js-numbers should also deserialize into 64 bit types
         from_value::<i64>(JsValue::from_f64(1.0)).unwrap();
         from_value::<i64>(JsValue::from_f64(-1.0)).unwrap();
 
         // Test near max safe float
-        to_value(&(MAX_SAFE_INTEGER + 1)).unwrap();
-        to_value(&-(MAX_SAFE_INTEGER + 1)).unwrap();
+        (MAX_SAFE_INTEGER + 1).serialize(&big_int_serializer).unwrap();
+        (-(MAX_SAFE_INTEGER + 1)).serialize(&big_int_serializer).unwrap();
 
         // Handle extreme values
-        to_value(&std::i64::MIN).unwrap();
-        to_value(&std::i64::MAX).unwrap();
+        std::i64::MIN.serialize(&big_int_serializer).unwrap();
+        std::i64::MAX.serialize(&big_int_serializer).unwrap();
     }
 
-    test_unsigned!(u64);
     {
         const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 
-        test_via_into(0_u64, 0_i64);
-        test_via_into(42_u64, 42_i64);
+        test_via_into_with_config(0_u64, 0_i64, &big_int_serializer);
+        test_via_into_with_config(42_u64, 42_i64, &big_int_serializer);
 
         from_value::<u64>(JsValue::from_f64(1.0)).unwrap();
 
-        test_via_into(MAX_SAFE_INTEGER, MAX_SAFE_INTEGER as i64);
-        to_value(&(MAX_SAFE_INTEGER + 1)).unwrap();
-        to_value(&std::u64::MAX).unwrap();
+        test_via_into_with_config(MAX_SAFE_INTEGER, MAX_SAFE_INTEGER as i64, &big_int_serializer);
+        (MAX_SAFE_INTEGER + 1).serialize(&big_int_serializer).unwrap();
+        std::u64::MAX.serialize(&big_int_serializer).unwrap();
     }
 }
 

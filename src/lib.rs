@@ -8,6 +8,7 @@ use wasm_bindgen::prelude::*;
 mod de;
 mod error;
 mod ser;
+mod bindings;
 
 pub use de::Deserializer;
 pub use error::Error;

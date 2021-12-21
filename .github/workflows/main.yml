@@ -15,10 +15,8 @@ jobs:
       - uses: jetli/wasm-pack-action@v0.3.0
       - name: Run tests in Chrome
         run: wasm-pack test --headless --chrome
-        run: wasm-pack test --headless --chrome --features bigint_serialization
       - name: Run tests in Firefox
         run: wasm-pack test --headless --firefox
-        run: wasm-pack test --headless --firefox --features bigint_serialization
       - name: Clippy checks
         run: cargo clippy --all-targets -- -D warnings
       - name: Format

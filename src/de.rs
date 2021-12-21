@@ -3,6 +3,7 @@ use serde::{
     de,
     serde_if_integer128,
 };
+use crate::bindings;
 use wasm_bindgen::{JsCast, JsValue};
 
 use super::{static_str_to_js, Error, ObjectExt, Result};
@@ -365,7 +366,6 @@ impl<'de> de::Deserializer<'de> for Deserializer {
         }
     }
 
-    // Define real `i64` / `u64` deserializers that only work with bigints.
     fn deserialize_i64<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         if self.value.is_bigint() {
             let big_int: BigInt = self.value.clone().into();
@@ -384,14 +384,8 @@ impl<'de> de::Deserializer<'de> for Deserializer {
 
     fn deserialize_u64<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         if self.value.is_bigint() {
-            let big_int: BigInt = self.value.clone().into();
-            // Safe to do unwraps since we know the type is a bigint
-            let rust_string = big_int.to_string(10).unwrap().as_string().unwrap();
-    
-            match rust_string.parse() {
-                Ok(v) => visitor.visit_u64(v),
-                Err(_) => self.invalid_type(visitor),
-            }
+            let value = bindings::to_u64(self.value.into());
+            visitor.visit_u64(value)
         } else {
             self.deserialize_from_js_number_unsigned(visitor)
         }
