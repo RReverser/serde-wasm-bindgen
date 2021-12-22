@@ -343,6 +343,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
         self.deserialize_from_js_number_signed(visitor)
     }
 
+    // TODO: Add i128 deserializer rather than forwarding to i64
     serde_if_integer128! {
         fn deserialize_i128<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
             self.deserialize_i64(visitor)
@@ -363,6 +364,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
         self.deserialize_from_js_number_unsigned(visitor)
     }
 
+    // TODO: Add u128 deserializer rather than forwarding to u64
     serde_if_integer128! {
         fn deserialize_u128<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
             self.deserialize_u64(visitor)
@@ -371,9 +373,12 @@ impl<'de> de::Deserializer<'de> for Deserializer {
 
     fn deserialize_i64<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         if let Some(big_int) = self.value.dyn_ref::<BigInt>() {
-            match bindings::to_i64(big_int) {
-                Some(value) => visitor.visit_i64(value),
-                None => Err(de::Error::custom("i64 attempted to be constructed from Bigint that was larger than i64::MAX or less than i64::MIN"))
+            let converted_number = bindings::big_int_to_i64(big_int);
+            // Do a round trip check in order to make sure that no information was lost
+            if &bindings::big_int_from_i64(converted_number) == big_int {
+                visitor.visit_i64(converted_number)
+            } else {
+                Err(de::Error::custom("i64 attempted to be constructed from Bigint that was larger than i64::MAX or less than i64::MIN"))
             }
         } else {
             self.deserialize_from_js_number_signed(visitor)
@@ -382,9 +387,12 @@ impl<'de> de::Deserializer<'de> for Deserializer {
 
     fn deserialize_u64<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         if let Some(big_int) = self.value.dyn_ref::<BigInt>() {
-            match bindings::to_u64(big_int) {
-                Some(value) => visitor.visit_u64(value),
-                None => Err(de::Error::custom("u64 attempted to be constructed from Bigint that was either larger than u64::MAX or less than u64::MIN"))
+            let converted_number = bindings::big_int_to_u64(big_int);
+            // Do a round trip check in order to make sure that no information was lost
+            if &bindings::big_int_from_u64(converted_number) == big_int {
+                visitor.visit_u64(converted_number)
+            } else {
+                Err(de::Error::custom("u64 attempted to be constructed from Bigint that was either larger than u64::MAX or less than u64::MIN"))
             }
         } else {
             self.deserialize_from_js_number_unsigned(visitor)
