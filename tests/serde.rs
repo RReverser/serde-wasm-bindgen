@@ -180,8 +180,8 @@ fn numbers() {
         to_value(&std::u64::MAX).unwrap_err();
     }
 
+    // Test u64 and i64 bigint serialization feature
     let big_int_serializer = Serializer::new().serialize_64_bit_numbers_as_big_int(true);
-
     {
         const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
 
@@ -190,39 +190,82 @@ fn numbers() {
         test_via_into_with_config(42_i64, 42_u64, &big_int_serializer);
 
         // Js-numbers should also deserialize into 64 bit types
-        from_value::<i64>(JsValue::from_f64(1.0)).unwrap();
-        from_value::<i64>(JsValue::from_f64(-1.0)).unwrap();
+        assert_eq!(from_value::<i64>(JsValue::from_f64(1.0)).unwrap(), 1);
+        assert_eq!(from_value::<i64>(JsValue::from_f64(-1.0)).unwrap(), -1);
+
+        // Invalid floats should fail
+        from_value::<i64>(JsValue::from_f64(1.5)).unwrap_err();
+        from_value::<i64>(JsValue::from_f64(-10.2)).unwrap_err();
+
+        // Big ints that are too large or small should error
+        let u64_max_big_int = std::u64::MAX.serialize(&big_int_serializer).unwrap();
+        from_value::<i64>(u64_max_big_int).unwrap_err();
+        let negative_one = -1_i64.serialize(&big_int_serializer).unwrap();
+        let to_small = std::u64::MAX.serialize(&big_int_serializer).unwrap() * negative_one;
+        from_value::<i64>(to_small).unwrap_err();
 
         // Test near max safe float
-        (MAX_SAFE_INTEGER + 1)
-            .serialize(&big_int_serializer)
-            .unwrap();
-        (-(MAX_SAFE_INTEGER + 1))
-            .serialize(&big_int_serializer)
-            .unwrap();
+        assert_eq!(
+            (MAX_SAFE_INTEGER + 1)
+                .serialize(&big_int_serializer)
+                .unwrap(),
+            MAX_SAFE_INTEGER + 1
+        );
+        assert_eq!(
+            (-(MAX_SAFE_INTEGER + 1))
+                .serialize(&big_int_serializer)
+                .unwrap(),
+            -(MAX_SAFE_INTEGER + 1)
+        );
 
         // Handle extreme values
-        std::i64::MIN.serialize(&big_int_serializer).unwrap();
-        std::i64::MAX.serialize(&big_int_serializer).unwrap();
+        assert_eq!(
+            std::i64::MIN.serialize(&big_int_serializer).unwrap(),
+            JsValue::from(std::i64::MIN)
+        );
+        assert_eq!(
+            std::i64::MAX.serialize(&big_int_serializer).unwrap(),
+            JsValue::from(std::i64::MAX)
+        );
     }
 
     {
         const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 
+        // u64 and i64 should serialize the same
         test_via_into_with_config(0_u64, 0_i64, &big_int_serializer);
         test_via_into_with_config(42_u64, 42_i64, &big_int_serializer);
-
-        from_value::<u64>(JsValue::from_f64(1.0)).unwrap();
-
         test_via_into_with_config(
             MAX_SAFE_INTEGER,
             MAX_SAFE_INTEGER as i64,
             &big_int_serializer,
         );
-        (MAX_SAFE_INTEGER + 1)
-            .serialize(&big_int_serializer)
-            .unwrap();
-        std::u64::MAX.serialize(&big_int_serializer).unwrap();
+
+        // Can still deserialize from JS numbers
+        assert_eq!(from_value::<u64>(JsValue::from_f64(1.0)).unwrap(), 1);
+
+        // Invalid floats should fail
+        from_value::<u64>(JsValue::from_f64(1.5)).unwrap_err();
+        from_value::<u64>(JsValue::from_f64(-10.2)).unwrap_err();
+
+        // Big ints that are too large or small should error
+        let larger_than_u64_max = std::u64::MAX.serialize(&big_int_serializer).unwrap()
+            + std::u64::MAX.serialize(&big_int_serializer).unwrap();
+        from_value::<u64>(larger_than_u64_max).unwrap_err();
+        let negative_one = -1_i64.serialize(&big_int_serializer).unwrap();
+        from_value::<u64>(negative_one).unwrap_err();
+
+        // Test large numbers
+        assert_eq!(
+            (MAX_SAFE_INTEGER + 1)
+                .serialize(&big_int_serializer)
+                .unwrap(),
+            (MAX_SAFE_INTEGER + 1)
+        );
+        assert_eq!(
+            std::u64::MAX.serialize(&big_int_serializer).unwrap(),
+            JsValue::from(std::u64::MAX)
+        );
     }
 }
 
