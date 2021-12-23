@@ -314,7 +314,7 @@ impl<'s> ser::Serializer for &'s Serializer {
         if self.serialize_large_number_types_as_bigints {
             Ok(JsValue::from(v))
         } else {
-            Err(Error::custom("To enable i128 serialization please serialize using serialize_large_number_types_as_bigints option"))
+            Err(Error::custom("To enable i128 serialization please use the serialize_large_number_types_as_bigints option"))
         }
     }
 
