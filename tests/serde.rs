@@ -197,20 +197,16 @@ fn numbers() {
     }
 
     // Test large number bigint serialization feature
-    let big_int_serializer = Serializer::new().serialize_large_number_types_as_big_ints(true);
+    let bigint_serializer = Serializer::new().serialize_large_number_types_as_bigints(true);
     {
         const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
 
         // Should be bigint
-        0_i64
-            .serialize(&big_int_serializer)
-            .unwrap()
-            .dyn_into::<BigInt>()
-            .unwrap();
+        assert!(0_i64.serialize(&bigint_serializer).unwrap().is_bigint());
 
         // u64 and i64 should serialize the same
-        test_via_into_with_config(0_i64, 0_u64, &big_int_serializer);
-        test_via_into_with_config(42_i64, 42_u64, &big_int_serializer);
+        test_via_into_with_config(0_i64, 0_u64, &bigint_serializer);
+        test_via_into_with_config(42_i64, 42_u64, &bigint_serializer);
 
         // Js-numbers should also deserialize into 64 bit types
         assert_eq!(from_value::<i64>(JsValue::from_f64(1.0)).unwrap(), 1);
@@ -221,33 +217,33 @@ fn numbers() {
         from_value::<i64>(JsValue::from_f64(-10.2)).unwrap_err();
 
         // Big ints that are too large or small should error
-        let u64_max_big_int = std::u64::MAX.serialize(&big_int_serializer).unwrap();
-        from_value::<i64>(u64_max_big_int).unwrap_err();
-        let negative_one = -1_i64.serialize(&big_int_serializer).unwrap();
-        let to_small = std::u64::MAX.serialize(&big_int_serializer).unwrap() * negative_one;
+        let u64_max_bigint = std::u64::MAX.serialize(&bigint_serializer).unwrap();
+        from_value::<i64>(u64_max_bigint).unwrap_err();
+        let negative_one = -1_i64.serialize(&bigint_serializer).unwrap();
+        let to_small = std::u64::MAX.serialize(&bigint_serializer).unwrap() * negative_one;
         from_value::<i64>(to_small).unwrap_err();
 
         // Test near max safe float
         assert_eq!(
             (MAX_SAFE_INTEGER + 1)
-                .serialize(&big_int_serializer)
+                .serialize(&bigint_serializer)
                 .unwrap(),
             MAX_SAFE_INTEGER + 1
         );
         assert_eq!(
             (-(MAX_SAFE_INTEGER + 1))
-                .serialize(&big_int_serializer)
+                .serialize(&bigint_serializer)
                 .unwrap(),
             -(MAX_SAFE_INTEGER + 1)
         );
 
         // Handle extreme values
         assert_eq!(
-            std::i64::MIN.serialize(&big_int_serializer).unwrap(),
+            std::i64::MIN.serialize(&bigint_serializer).unwrap(),
             JsValue::from(std::i64::MIN)
         );
         assert_eq!(
-            std::i64::MAX.serialize(&big_int_serializer).unwrap(),
+            std::i64::MAX.serialize(&bigint_serializer).unwrap(),
             JsValue::from(std::i64::MAX)
         );
     }
@@ -256,19 +252,15 @@ fn numbers() {
         const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 
         // Should be bigint
-        0_u64
-            .serialize(&big_int_serializer)
-            .unwrap()
-            .dyn_into::<BigInt>()
-            .unwrap();
+        assert!(!0_u64.serialize(&bigint_serializer).unwrap().is_bigint());
 
         // u64 and i64 should serialize the same
-        test_via_into_with_config(0_u64, 0_i64, &big_int_serializer);
-        test_via_into_with_config(42_u64, 42_i64, &big_int_serializer);
+        test_via_into_with_config(0_u64, 0_i64, &bigint_serializer);
+        test_via_into_with_config(42_u64, 42_i64, &bigint_serializer);
         test_via_into_with_config(
             MAX_SAFE_INTEGER,
             MAX_SAFE_INTEGER as i64,
-            &big_int_serializer,
+            &bigint_serializer,
         );
 
         // Can still deserialize from JS numbers
@@ -279,21 +271,21 @@ fn numbers() {
         from_value::<u64>(JsValue::from_f64(-10.2)).unwrap_err();
 
         // Big ints that are too large or small should error
-        let larger_than_u64_max = std::u64::MAX.serialize(&big_int_serializer).unwrap()
-            + std::u64::MAX.serialize(&big_int_serializer).unwrap();
+        let larger_than_u64_max = std::u64::MAX.serialize(&bigint_serializer).unwrap()
+            + std::u64::MAX.serialize(&bigint_serializer).unwrap();
         from_value::<u64>(larger_than_u64_max).unwrap_err();
-        let negative_one = -1_i64.serialize(&big_int_serializer).unwrap();
+        let negative_one = -1_i64.serialize(&bigint_serializer).unwrap();
         from_value::<u64>(negative_one).unwrap_err();
 
         // Test large numbers
         assert_eq!(
             (MAX_SAFE_INTEGER + 1)
-                .serialize(&big_int_serializer)
+                .serialize(&bigint_serializer)
                 .unwrap(),
             (MAX_SAFE_INTEGER + 1)
         );
         assert_eq!(
-            std::u64::MAX.serialize(&big_int_serializer).unwrap(),
+            std::u64::MAX.serialize(&bigint_serializer).unwrap(),
             JsValue::from(std::u64::MAX)
         );
     }
@@ -301,15 +293,11 @@ fn numbers() {
     // i128 and u128 should serialize to bigint when the feature is enabled
     {
         // Should be bigint
-        0_i128
-            .serialize(&big_int_serializer)
-            .unwrap()
-            .dyn_into::<BigInt>()
-            .unwrap();
+        assert!(0_i128.serialize(&bigint_serializer).unwrap().is_bigint());
 
         // i128 and u128 should serialize the same
-        test_via_into_with_config(0_u128, 0_i128, &big_int_serializer);
-        test_via_into_with_config(42_u128, 42_i128, &big_int_serializer);
+        test_via_into_with_config(0_u128, 0_i128, &bigint_serializer);
+        test_via_into_with_config(42_u128, 42_i128, &bigint_serializer);
 
         // Can still deserialize from JS numbers
         assert_eq!(from_value::<i128>(JsValue::from_f64(1.0)).unwrap(), 1);
@@ -321,15 +309,11 @@ fn numbers() {
 
     {
         // Should be bigint
-        0_u128
-            .serialize(&big_int_serializer)
-            .unwrap()
-            .dyn_into::<BigInt>()
-            .unwrap();
+        assert!(0_u128.serialize(&bigint_serializer).unwrap().is_bigint());
 
         // i128 and u128 should serialize the same
-        test_via_into_with_config(0_i128, 0_u128, &big_int_serializer);
-        test_via_into_with_config(42_i128, 42_u128, &big_int_serializer);
+        test_via_into_with_config(0_i128, 0_u128, &bigint_serializer);
+        test_via_into_with_config(42_i128, 42_u128, &bigint_serializer);
 
         // Can still deserialize from JS numbers
         assert_eq!(from_value::<u128>(JsValue::from_f64(1.0)).unwrap(), 1);

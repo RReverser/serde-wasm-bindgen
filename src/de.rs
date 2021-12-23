@@ -372,13 +372,13 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     }
 
     fn deserialize_i64<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        if let Some(big_int) = self.value.dyn_ref::<BigInt>() {
-            let converted_number = bindings::big_int_to_i64(big_int);
+        if let Some(bigint) = self.value.dyn_ref::<BigInt>() {
+            let converted_number = bindings::bigint_to_i64(bigint);
             // Do a round trip check in order to make sure that no information was lost
-            if &bindings::big_int_from_i64(converted_number) == big_int {
+            if &bindings::bigint_from_i64(converted_number) == bigint {
                 visitor.visit_i64(converted_number)
             } else {
-                Err(de::Error::custom("i64 attempted to be constructed from Bigint that was larger than i64::MAX or less than i64::MIN"))
+                Err(de::Error::custom("i64 attempted to be constructed from BigInt that was larger than i64::MAX or less than i64::MIN"))
             }
         } else {
             self.deserialize_from_js_number_signed(visitor)
@@ -386,13 +386,13 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     }
 
     fn deserialize_u64<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        if let Some(big_int) = self.value.dyn_ref::<BigInt>() {
-            let converted_number = bindings::big_int_to_u64(big_int);
+        if let Some(bigint) = self.value.dyn_ref::<BigInt>() {
+            let converted_number = bindings::bigint_to_u64(bigint);
             // Do a round trip check in order to make sure that no information was lost
-            if &bindings::big_int_from_u64(converted_number) == big_int {
+            if &bindings::bigint_from_u64(converted_number) == bigint {
                 visitor.visit_u64(converted_number)
             } else {
-                Err(de::Error::custom("u64 attempted to be constructed from Bigint that was either larger than u64::MAX or less than u64::MIN"))
+                Err(de::Error::custom("u64 attempted to be constructed from BigInt that was either larger than u64::MAX or less than u64::MIN"))
             }
         } else {
             self.deserialize_from_js_number_unsigned(visitor)

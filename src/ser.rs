@@ -215,7 +215,7 @@ impl ser::SerializeStruct for ObjectSerializer<'_> {
 #[derive(Default)]
 pub struct Serializer {
     serialize_maps_as_objects: bool,
-    serialize_large_number_types_as_big_ints: bool,
+    serialize_large_number_types_as_bigints: bool,
 }
 
 impl Serializer {
@@ -233,8 +233,8 @@ impl Serializer {
 
     /// Set to `true` to serialize 64 bit numbers to JavaScript `BigInt` instead of
     /// `Number`. `false` by default
-    pub fn serialize_large_number_types_as_big_ints(mut self, value: bool) -> Self {
-        self.serialize_large_number_types_as_big_ints = value;
+    pub fn serialize_large_number_types_as_bigints(mut self, value: bool) -> Self {
+        self.serialize_large_number_types_as_bigints = value;
         self
     }
 }
@@ -277,8 +277,8 @@ impl<'s> ser::Serializer for &'s Serializer {
     }
 
     fn serialize_i64(self, v: i64) -> Result {
-        if self.serialize_large_number_types_as_big_ints {
-            return Ok(bindings::big_int_from_i64(v).into());
+        if self.serialize_large_number_types_as_bigints {
+            return Ok(bindings::bigint_from_i64(v).into());
         }
         const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
         const MIN_SAFE_INTEGER: i64 = -MAX_SAFE_INTEGER;
@@ -294,8 +294,8 @@ impl<'s> ser::Serializer for &'s Serializer {
     }
 
     fn serialize_u64(self, v: u64) -> Result {
-        if self.serialize_large_number_types_as_big_ints {
-            return Ok(bindings::big_int_from_u64(v).into());
+        if self.serialize_large_number_types_as_bigints {
+            return Ok(bindings::bigint_from_u64(v).into());
         }
 
         const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
@@ -311,15 +311,15 @@ impl<'s> ser::Serializer for &'s Serializer {
     }
 
     fn serialize_i128(self, v: i128) -> Result {
-        if self.serialize_large_number_types_as_big_ints {
+        if self.serialize_large_number_types_as_bigints {
             Ok(JsValue::from(v))
         } else {
-            Err(Error::custom("i128 is not supported"))
+            Err(Error::custom("To enable i128 please serialize using serialize_large_number_types_as_bigints option"))
         }
     }
 
     fn serialize_u128(self, v: u128) -> Result {
-        if self.serialize_large_number_types_as_big_ints {
+        if self.serialize_large_number_types_as_bigints {
             Ok(JsValue::from(v))
         } else {
             Err(Error::custom("u128 is not supported"))
