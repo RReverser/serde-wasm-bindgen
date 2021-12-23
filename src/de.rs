@@ -378,7 +378,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
             if &bindings::bigint_from_i64(converted_number) == bigint {
                 visitor.visit_i64(converted_number)
             } else {
-                Err(de::Error::custom("i64 attempted to be constructed from BigInt that was larger than i64::MAX or less than i64::MIN"))
+                Err(de::Error::custom("Couldn't deserialize i64 from a BigInt outside i64::MIN..i64::MAX bounds"))
             }
         } else {
             self.deserialize_from_js_number_signed(visitor)
