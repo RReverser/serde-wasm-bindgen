@@ -1,4 +1,3 @@
-use js_sys::BigInt;
 use maplit::{btreemap, hashmap, hashset};
 use serde::de::DeserializeOwned;
 use serde::ser::Error as SerError;
@@ -252,7 +251,7 @@ fn numbers() {
         const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 
         // Should be bigint
-        assert!(!0_u64.serialize(&bigint_serializer).unwrap().is_bigint());
+        assert!(0_u64.serialize(&bigint_serializer).unwrap().is_bigint());
 
         // u64 and i64 should serialize the same
         test_via_into_with_config(0_u64, 0_i64, &bigint_serializer);
