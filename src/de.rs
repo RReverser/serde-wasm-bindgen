@@ -392,7 +392,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
             if &bindings::bigint_from_u64(converted_number) == bigint {
                 visitor.visit_u64(converted_number)
             } else {
-                Err(de::Error::custom("u64 attempted to be constructed from BigInt that was either larger than u64::MAX or less than u64::MIN"))
+                Err(de::Error::custom("Couldn't deserialize u64 from a BigInt outside u64::MIN..u64::MAX bounds"))
             }
         } else {
             self.deserialize_from_js_number_unsigned(visitor)
