@@ -1,3 +1,4 @@
+use js_sys::BigInt;
 use maplit::{btreemap, hashmap, hashset};
 use serde::de::DeserializeOwned;
 use serde::ser::Error as SerError;
@@ -216,11 +217,8 @@ fn numbers() {
         from_value::<i64>(JsValue::from_f64(-10.2)).unwrap_err();
 
         // Big ints that are too large or small should error
-        let u64_max_bigint = std::u64::MAX.serialize(&bigint_serializer).unwrap();
-        from_value::<i64>(u64_max_bigint).unwrap_err();
-        let negative_one = -(1_i64.serialize(&bigint_serializer).unwrap());
-        let to_small = std::u64::MAX.serialize(&bigint_serializer).unwrap() * negative_one;
-        from_value::<i64>(to_small).unwrap_err();
+        from_value::<i64>(BigInt::from(i128::MAX).into()).unwrap_err();
+        from_value::<i64>(BigInt::from(i128::MIN).into()).unwrap_err();
 
         // Test near max safe float
         assert_eq!(
@@ -270,11 +268,8 @@ fn numbers() {
         from_value::<u64>(JsValue::from_f64(-10.2)).unwrap_err();
 
         // Big ints that are too large or small should error
-        let larger_than_u64_max = std::u64::MAX.serialize(&bigint_serializer).unwrap()
-            + std::u64::MAX.serialize(&bigint_serializer).unwrap();
-        from_value::<u64>(larger_than_u64_max).unwrap_err();
-        let negative_one = -(1_i64.serialize(&bigint_serializer).unwrap());
-        from_value::<u64>(negative_one).unwrap_err();
+        from_value::<u64>(BigInt::from(i128::MAX).into()).unwrap_err();
+        from_value::<u64>(BigInt::from(i128::MIN).into()).unwrap_err();
 
         // Test large numbers
         assert_eq!(
