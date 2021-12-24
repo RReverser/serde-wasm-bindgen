@@ -1,6 +1,5 @@
-#![cfg_attr(feature = "external_doc", feature(external_doc))]
-#![cfg_attr(feature = "external_doc", doc(include = "../README.md"))]
-#![cfg_attr(feature = "external_doc", warn(missing_docs))]
+#![doc = include_str!("../README.md")]
+#![warn(missing_docs)]
 
 use js_sys::JsString;
 use wasm_bindgen::prelude::*;

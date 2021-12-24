@@ -231,8 +231,8 @@ impl Serializer {
         self
     }
 
-    /// Set to `true` to serialize 64 bit numbers to JavaScript `BigInt` instead of
-    /// `Number`. `false` by default
+    /// Set to `true` to serialize 64-bit numbers to JavaScript `BigInt` instead of
+    /// plain numbers. `false` by default.
     pub fn serialize_large_number_types_as_bigints(mut self, value: bool) -> Self {
         self.serialize_large_number_types_as_bigints = value;
         self
