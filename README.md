@@ -15,8 +15,11 @@ These numbers are currently mostly saturated by the overhead of frequent JavaScr
 To pass a Rust value to JavaScript, use:
 
 ```rust
+use wasm_bindgen::prelude::*;
+
 #[wasm_bindgen]
 pub fn pass_value_to_js() -> Result<(), JsValue> {
+	let some_supported_rust_value = ("Hello, world!", 42);
 	let js_value = serde_wasm_bindgen::to_value(&some_supported_rust_value)?;
 	// ...
 	Ok(())
@@ -26,9 +29,11 @@ pub fn pass_value_to_js() -> Result<(), JsValue> {
 To retrieve a value from JavaScript:
 
 ```rust
+use wasm_bindgen::prelude::*;
+
 #[wasm_bindgen]
 pub fn get_value_from_js(value: JsValue) -> Result<(), JsValue> {
-	let value: SomeSupportedRustType = serde_wasm_bindgen::from_value(value)?;
+	let value: (String, i32) = serde_wasm_bindgen::from_value(value)?;
 	// ...
 	Ok(())
 }
