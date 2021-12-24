@@ -1,4 +1,5 @@
-use js_sys::{Array, ArrayBuffer, JsString, Number, Object, Reflect, Symbol, Uint8Array};
+use crate::bindings;
+use js_sys::{Array, ArrayBuffer, BigInt, JsString, Number, Object, Reflect, Symbol, Uint8Array};
 use serde::{de, serde_if_integer128};
 use wasm_bindgen::{JsCast, JsValue};
 
@@ -212,6 +213,26 @@ impl Deserializer {
         }
         None
     }
+
+    fn deserialize_from_js_number_signed<'de, V: de::Visitor<'de>>(
+        &self,
+        visitor: V,
+    ) -> Result<V::Value> {
+        match self.as_safe_integer() {
+            Some(v) => visitor.visit_i64(v),
+            _ => self.invalid_type(visitor),
+        }
+    }
+
+    fn deserialize_from_js_number_unsigned<'de, V: de::Visitor<'de>>(
+        &self,
+        visitor: V,
+    ) -> Result<V::Value> {
+        match self.as_safe_integer() {
+            Some(v) if v >= 0 => visitor.visit_u64(v as _),
+            _ => self.invalid_type(visitor),
+        }
+    }
 }
 
 impl<'de> de::Deserializer<'de> for Deserializer {
@@ -311,17 +332,18 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     // these to 64-bit methods to save some space in the generated WASM.
 
     fn deserialize_i8<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.deserialize_i64(visitor)
+        self.deserialize_from_js_number_signed(visitor)
     }
 
     fn deserialize_i16<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.deserialize_i64(visitor)
+        self.deserialize_from_js_number_signed(visitor)
     }
 
     fn deserialize_i32<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.deserialize_i64(visitor)
+        self.deserialize_from_js_number_signed(visitor)
     }
 
+    // TODO: Add i128 deserializer rather than forwarding to i64
     serde_if_integer128! {
         fn deserialize_i128<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
             self.deserialize_i64(visitor)
@@ -331,36 +353,53 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     // Same as above, but for `i64`.
 
     fn deserialize_u8<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.deserialize_u64(visitor)
+        self.deserialize_from_js_number_unsigned(visitor)
     }
 
     fn deserialize_u16<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.deserialize_u64(visitor)
+        self.deserialize_from_js_number_unsigned(visitor)
     }
 
     fn deserialize_u32<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.deserialize_u64(visitor)
+        self.deserialize_from_js_number_unsigned(visitor)
     }
 
+    // TODO: Add u128 deserializer rather than forwarding to u64
     serde_if_integer128! {
         fn deserialize_u128<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
             self.deserialize_u64(visitor)
         }
     }
 
-    // Define real `i64` / `u64` deserializers that try to cast from `f64`.
-
     fn deserialize_i64<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        match self.as_safe_integer() {
-            Some(v) => visitor.visit_i64(v),
-            None => self.invalid_type(visitor),
+        if let Some(bigint) = self.value.dyn_ref::<BigInt>() {
+            let converted_number = bindings::bigint_to_i64(bigint);
+            // Do a round trip check in order to make sure that no information was lost
+            if &bindings::bigint_from_i64(converted_number) == bigint {
+                visitor.visit_i64(converted_number)
+            } else {
+                Err(de::Error::custom(
+                    "Couldn't deserialize i64 from a BigInt outside i64::MIN..i64::MAX bounds",
+                ))
+            }
+        } else {
+            self.deserialize_from_js_number_signed(visitor)
         }
     }
 
     fn deserialize_u64<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        match self.as_safe_integer() {
-            Some(v) if v >= 0 => visitor.visit_u64(v as _),
-            _ => self.invalid_type(visitor),
+        if let Some(bigint) = self.value.dyn_ref::<BigInt>() {
+            let converted_number = bindings::bigint_to_u64(bigint);
+            // Do a round trip check in order to make sure that no information was lost
+            if &bindings::bigint_from_u64(converted_number) == bigint {
+                visitor.visit_u64(converted_number)
+            } else {
+                Err(de::Error::custom(
+                    "Couldn't deserialize u64 from a BigInt outside u64::MIN..u64::MAX bounds",
+                ))
+            }
+        } else {
+            self.deserialize_from_js_number_unsigned(visitor)
         }
     }
 

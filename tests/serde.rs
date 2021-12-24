@@ -1,3 +1,4 @@
+use js_sys::BigInt;
 use maplit::{btreemap, hashmap, hashset};
 use serde::de::DeserializeOwned;
 use serde::ser::Error as SerError;
@@ -16,7 +17,15 @@ where
     L: Serialize + DeserializeOwned + PartialEq + Debug,
     R: Into<JsValue>,
 {
-    let lhs_value = to_value(&lhs).unwrap();
+    test_via_into_with_config(lhs, rhs, &Serializer::new())
+}
+
+fn test_via_into_with_config<L, R>(lhs: L, rhs: R, serializer: &Serializer)
+where
+    L: Serialize + DeserializeOwned + PartialEq + Debug,
+    R: Into<JsValue>,
+{
+    let lhs_value = lhs.serialize(serializer).unwrap();
     assert_eq!(lhs_value, rhs.into(), "to_value from {:?}", lhs);
     let restored_lhs = from_value(lhs_value.clone()).unwrap();
     assert_eq!(lhs, restored_lhs, "from_value from {:?}", lhs_value);
@@ -145,6 +154,9 @@ fn numbers() {
     test_signed!(i32);
     test_unsigned!(u32);
 
+    test_float!(f32);
+    test_float!(f64);
+
     {
         const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
 
@@ -169,8 +181,141 @@ fn numbers() {
         to_value(&std::u64::MAX).unwrap_err();
     }
 
-    test_float!(f32);
-    test_float!(f64);
+    // By default serializing i128 and u128 results in an error
+    {
+        to_value(&0_i128).unwrap_err();
+        to_value(&0_u128).unwrap_err();
+    }
+
+    // By default deserializing i128 and u128 uses 64 bit implementation
+    {
+        assert_eq!(from_value::<i128>(JsValue::from(0_i128)).unwrap(), 0);
+        assert_eq!(from_value::<i128>(JsValue::from(42_i128)).unwrap(), 42);
+        assert_eq!(from_value::<i128>(JsValue::from(-42_i128)).unwrap(), -42);
+        assert_eq!(from_value::<u128>(JsValue::from(0_u128)).unwrap(), 0);
+        assert_eq!(from_value::<u128>(JsValue::from(42_u128)).unwrap(), 42);
+    }
+
+    // Test large number bigint serialization feature
+    let bigint_serializer = Serializer::new().serialize_large_number_types_as_bigints(true);
+    {
+        const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
+
+        // Should be bigint
+        assert!(0_i64.serialize(&bigint_serializer).unwrap().is_bigint());
+
+        // u64 and i64 should serialize the same
+        test_via_into_with_config(0_i64, 0_u64, &bigint_serializer);
+        test_via_into_with_config(42_i64, 42_u64, &bigint_serializer);
+
+        // Js-numbers should also deserialize into 64 bit types
+        assert_eq!(from_value::<i64>(JsValue::from_f64(1.0)).unwrap(), 1);
+        assert_eq!(from_value::<i64>(JsValue::from_f64(-1.0)).unwrap(), -1);
+
+        // Invalid floats should fail
+        from_value::<i64>(JsValue::from_f64(1.5)).unwrap_err();
+        from_value::<i64>(JsValue::from_f64(-10.2)).unwrap_err();
+
+        // Big ints that are too large or small should error
+        from_value::<i64>(BigInt::from(i128::MAX).into()).unwrap_err();
+        from_value::<i64>(BigInt::from(i128::MIN).into()).unwrap_err();
+
+        // Test near max safe float
+        assert_eq!(
+            (MAX_SAFE_INTEGER + 1)
+                .serialize(&bigint_serializer)
+                .unwrap(),
+            MAX_SAFE_INTEGER + 1
+        );
+        assert_eq!(
+            (-(MAX_SAFE_INTEGER + 1))
+                .serialize(&bigint_serializer)
+                .unwrap(),
+            -(MAX_SAFE_INTEGER + 1)
+        );
+
+        // Handle extreme values
+        assert_eq!(
+            std::i64::MIN.serialize(&bigint_serializer).unwrap(),
+            JsValue::from(std::i64::MIN)
+        );
+        assert_eq!(
+            std::i64::MAX.serialize(&bigint_serializer).unwrap(),
+            JsValue::from(std::i64::MAX)
+        );
+    }
+
+    {
+        const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
+
+        // Should be bigint
+        assert!(0_u64.serialize(&bigint_serializer).unwrap().is_bigint());
+
+        // u64 and i64 should serialize the same
+        test_via_into_with_config(0_u64, 0_i64, &bigint_serializer);
+        test_via_into_with_config(42_u64, 42_i64, &bigint_serializer);
+        test_via_into_with_config(
+            MAX_SAFE_INTEGER,
+            MAX_SAFE_INTEGER as i64,
+            &bigint_serializer,
+        );
+
+        // Can still deserialize from JS numbers
+        assert_eq!(from_value::<u64>(JsValue::from_f64(1.0)).unwrap(), 1);
+
+        // Invalid floats should fail
+        from_value::<u64>(JsValue::from_f64(1.5)).unwrap_err();
+        from_value::<u64>(JsValue::from_f64(-10.2)).unwrap_err();
+
+        // Big ints that are too large or small should error
+        from_value::<u64>(BigInt::from(i128::MAX).into()).unwrap_err();
+        from_value::<u64>(BigInt::from(i128::MIN).into()).unwrap_err();
+
+        // Test large numbers
+        assert_eq!(
+            (MAX_SAFE_INTEGER + 1)
+                .serialize(&bigint_serializer)
+                .unwrap(),
+            (MAX_SAFE_INTEGER + 1)
+        );
+        assert_eq!(
+            std::u64::MAX.serialize(&bigint_serializer).unwrap(),
+            JsValue::from(std::u64::MAX)
+        );
+    }
+
+    // i128 and u128 should serialize to bigint when the feature is enabled
+    {
+        // Should be bigint
+        assert!(0_i128.serialize(&bigint_serializer).unwrap().is_bigint());
+
+        // i128 and u128 should serialize the same
+        test_via_into_with_config(0_u128, 0_i128, &bigint_serializer);
+        test_via_into_with_config(42_u128, 42_i128, &bigint_serializer);
+
+        // Can still deserialize from JS numbers
+        assert_eq!(from_value::<i128>(JsValue::from_f64(1.0)).unwrap(), 1);
+
+        // Invalid floats should fail
+        from_value::<i128>(JsValue::from_f64(1.5)).unwrap_err();
+        from_value::<i128>(JsValue::from_f64(-10.2)).unwrap_err();
+    }
+
+    {
+        // Should be bigint
+        assert!(0_u128.serialize(&bigint_serializer).unwrap().is_bigint());
+
+        // i128 and u128 should serialize the same
+        test_via_into_with_config(0_i128, 0_u128, &bigint_serializer);
+        test_via_into_with_config(42_i128, 42_u128, &bigint_serializer);
+
+        // Can still deserialize from JS numbers
+        assert_eq!(from_value::<u128>(JsValue::from_f64(1.0)).unwrap(), 1);
+
+        // Invalid floats should fail
+        from_value::<u128>(JsValue::from_f64(1.5)).unwrap_err();
+        from_value::<u128>(JsValue::from_f64(-10.2)).unwrap_err();
+    }
 }
 
 #[wasm_bindgen_test]
