@@ -218,7 +218,7 @@ fn numbers() {
         // Big ints that are too large or small should error
         let u64_max_bigint = std::u64::MAX.serialize(&bigint_serializer).unwrap();
         from_value::<i64>(u64_max_bigint).unwrap_err();
-        let negative_one = -1_i64.serialize(&bigint_serializer).unwrap();
+        let negative_one = -(1_i64.serialize(&bigint_serializer).unwrap());
         let to_small = std::u64::MAX.serialize(&bigint_serializer).unwrap() * negative_one;
         from_value::<i64>(to_small).unwrap_err();
 
@@ -273,7 +273,7 @@ fn numbers() {
         let larger_than_u64_max = std::u64::MAX.serialize(&bigint_serializer).unwrap()
             + std::u64::MAX.serialize(&bigint_serializer).unwrap();
         from_value::<u64>(larger_than_u64_max).unwrap_err();
-        let negative_one = -1_i64.serialize(&bigint_serializer).unwrap();
+        let negative_one = -(1_i64.serialize(&bigint_serializer).unwrap());
         from_value::<u64>(negative_one).unwrap_err();
 
         // Test large numbers

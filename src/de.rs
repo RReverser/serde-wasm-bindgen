@@ -378,7 +378,9 @@ impl<'de> de::Deserializer<'de> for Deserializer {
             if &bindings::bigint_from_i64(converted_number) == bigint {
                 visitor.visit_i64(converted_number)
             } else {
-                Err(de::Error::custom("Couldn't deserialize i64 from a BigInt outside i64::MIN..i64::MAX bounds"))
+                Err(de::Error::custom(
+                    "Couldn't deserialize i64 from a BigInt outside i64::MIN..i64::MAX bounds",
+                ))
             }
         } else {
             self.deserialize_from_js_number_signed(visitor)
@@ -392,7 +394,9 @@ impl<'de> de::Deserializer<'de> for Deserializer {
             if &bindings::bigint_from_u64(converted_number) == bigint {
                 visitor.visit_u64(converted_number)
             } else {
-                Err(de::Error::custom("Couldn't deserialize u64 from a BigInt outside u64::MIN..u64::MAX bounds"))
+                Err(de::Error::custom(
+                    "Couldn't deserialize u64 from a BigInt outside u64::MIN..u64::MAX bounds",
+                ))
             }
         } else {
             self.deserialize_from_js_number_unsigned(visitor)
