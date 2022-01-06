@@ -41,7 +41,8 @@ pub fn get_value_from_js(value: JsValue) -> Result<(), JsValue> {
 
 ## Supported types
 
-Note that, even though it might often be the case, this library doesn't attempt to be strictly compatible with either [`serde_json`](https://docs.serde.rs/serde_json/) or, correspondingly, `JsValue::from_serde` / `JsValue::into_serde`, instead prioritising better compatibility with common JavaScript idioms and representations.
+Note: this library is not strictly compatible with either [`serde_json`](https://docs.serde.rs/serde_json/) or, correspondingly, `JsValue::from_serde` / `JsValue::into_serde`, by default, for better compatibility with common JavaScript idioms and representations. If you need compatibility
+with them, or you want to use `JSON.stringify` on the result without data loss, use `Serializer::json_compatible()` as serializer.
 
 Supported types and values for the deserialization:
  - `()` from `undefined` and `null`.
@@ -62,7 +63,7 @@ Supported types and values for the deserialization:
  - Rust enum from either a string (`"Variant"`) or a plain object. Specific representation is [controlled](https://serde.rs/enum-representations.html) by `#[serde(...)]` attributes and should be compatible with `serde-json`.
 
 Serialization is compatible with the deserialization, but it's limited to a single representation, so it chooses:
- - `undefined` for `()` or `None`.
+ - `undefined` for `()` or `None` (can be configured to use `null` via `serialize_missing_as_null(true)`).
  - ES2015 `Map` for Rust maps (can be configured to use plain objects via `serialize_maps_as_objects(true)`).
  - `Array` for any Rust sequences.
  - `Uint8Array` for byte buffers.

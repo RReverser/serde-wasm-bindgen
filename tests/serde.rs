@@ -4,7 +4,7 @@ use serde::de::DeserializeOwned;
 use serde::ser::Error as SerError;
 use serde::{Deserialize, Serialize};
 use serde_wasm_bindgen::{from_value, to_value, Error, Serializer};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::hash::Hash;
 use wasm_bindgen::{JsCast, JsValue};
@@ -539,6 +539,23 @@ fn maps_objects_string_key() {
     };
 
     test_via_json_with_config(src, Serializer::new().serialize_maps_as_objects(true));
+}
+
+#[wasm_bindgen_test]
+fn serialize_json_compatible() {
+    #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+    struct Struct {
+        a: HashMap<String, ()>,
+        b: Option<i32>,
+    }
+    let x = Struct {
+        a: hashmap! {
+            "foo".to_string() => (),
+            "bar".to_string() => (),
+        },
+        b: None,
+    };
+    test_via_json_with_config(x, Serializer::json_compatible());
 }
 
 #[wasm_bindgen_test]
