@@ -234,23 +234,23 @@ impl Deserializer {
         }
     }
 
-    fn bigint_to_i64(&self, bigint:&BigInt) -> Option<i64> {
+    fn bigint_to_i64(&self, bigint: &BigInt) -> Option<i64> {
         let converted_number = bindings::bigint_to_i64(bigint);
         // Do a round trip check in order to make sure that no information was lost
         if &bindings::bigint_from_i64(converted_number) == bigint {
             Some(converted_number)
         } else {
-           None
+            None
         }
     }
 
-    fn bigint_to_u64(&self, bigint:&BigInt) -> Option<u64> {
+    fn bigint_to_u64(&self, bigint: &BigInt) -> Option<u64> {
         let converted_number = bindings::bigint_to_u64(bigint);
         // Do a round trip check in order to make sure that no information was lost
         if &bindings::bigint_from_u64(converted_number) == bigint {
             Some(converted_number)
         } else {
-           None
+            None
         }
     }
 }
@@ -274,7 +274,6 @@ impl<'de> de::Deserializer<'de> for Deserializer {
             } else {
                 Err(de::Error::custom("Couldn't deserialize i64 or u64 from a BigInt outside i64::MIN..u64::MAX bounds"))
             }
-
         } else if let Some(v) = self.value.as_f64() {
             if Number::is_safe_integer(&self.value) {
                 visitor.visit_i64(v as i64)
@@ -406,7 +405,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
                 Some(v) => visitor.visit_i64(v),
                 None => Err(de::Error::custom(
                     "Couldn't deserialize i64 from a BigInt outside i64::MIN..i64::MAX bounds",
-                ))
+                )),
             }
         } else {
             self.deserialize_from_js_number_signed(visitor)
@@ -419,7 +418,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
                 Some(v) => visitor.visit_u64(v),
                 None => Err(de::Error::custom(
                     "Couldn't deserialize u64 from a BigInt outside u64::MIN..u64::MAX bounds",
-                ))
+                )),
             }
         } else {
             self.deserialize_from_js_number_unsigned(visitor)
@@ -583,8 +582,6 @@ impl<'de> de::Deserializer<'de> for Deserializer {
         true
     }
 }
-
-
 
 impl<'de> de::VariantAccess<'de> for Deserializer {
     type Error = Error;
