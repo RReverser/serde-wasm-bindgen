@@ -146,6 +146,26 @@ fn convert_pair(pair: JsValue) -> (Deserializer, Deserializer) {
     (pair.get(0).into(), pair.get(1).into())
 }
 
+fn bigint_to_i64(bigint: &BigInt) -> Option<i64> {
+    let converted_number = bindings::bigint_to_i64(bigint);
+    // Do a round trip check in order to make sure that no information was lost
+    if &bindings::bigint_from_i64(converted_number) == bigint {
+        Some(converted_number)
+    } else {
+        None
+    }
+}
+
+fn bigint_to_u64(bigint: &BigInt) -> Option<u64> {
+    let converted_number = bindings::bigint_to_u64(bigint);
+    // Do a round trip check in order to make sure that no information was lost
+    if &bindings::bigint_from_u64(converted_number) == bigint {
+        Some(converted_number)
+    } else {
+        None
+    }
+}
+
 impl Deserializer {
     /// Casts the internal value into an object, including support for prototype-less objects.
     /// See https://github.com/rustwasm/wasm-bindgen/issues/1366 for why we don't use `dyn_ref`.
@@ -233,26 +253,6 @@ impl Deserializer {
             _ => self.invalid_type(visitor),
         }
     }
-
-    fn bigint_to_i64(&self, bigint: &BigInt) -> Option<i64> {
-        let converted_number = bindings::bigint_to_i64(bigint);
-        // Do a round trip check in order to make sure that no information was lost
-        if &bindings::bigint_from_i64(converted_number) == bigint {
-            Some(converted_number)
-        } else {
-            None
-        }
-    }
-
-    fn bigint_to_u64(&self, bigint: &BigInt) -> Option<u64> {
-        let converted_number = bindings::bigint_to_u64(bigint);
-        // Do a round trip check in order to make sure that no information was lost
-        if &bindings::bigint_from_u64(converted_number) == bigint {
-            Some(converted_number)
-        } else {
-            None
-        }
-    }
 }
 
 impl<'de> de::Deserializer<'de> for Deserializer {
@@ -267,9 +267,9 @@ impl<'de> de::Deserializer<'de> for Deserializer {
         } else if let Some(v) = self.value.as_bool() {
             visitor.visit_bool(v)
         } else if let Some(bigint) = self.value.dyn_ref::<BigInt>() {
-            if let Some(v) = self.bigint_to_i64(bigint) {
+            if let Some(v) = bigint_to_i64(bigint) {
                 visitor.visit_i64(v)
-            } else if let Some(v) = self.bigint_to_u64(bigint) {
+            } else if let Some(v) = bigint_to_u64(bigint) {
                 visitor.visit_u64(v)
             } else {
                 Err(de::Error::custom("Couldn't deserialize i64 or u64 from a BigInt outside i64::MIN..u64::MAX bounds"))
@@ -401,7 +401,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
 
     fn deserialize_i64<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         if let Some(bigint) = self.value.dyn_ref::<BigInt>() {
-            match self.bigint_to_i64(bigint) {
+            match bigint_to_i64(bigint) {
                 Some(v) => visitor.visit_i64(v),
                 None => Err(de::Error::custom(
                     "Couldn't deserialize i64 from a BigInt outside i64::MIN..i64::MAX bounds",
@@ -414,7 +414,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
 
     fn deserialize_u64<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         if let Some(bigint) = self.value.dyn_ref::<BigInt>() {
-            match self.bigint_to_u64(bigint) {
+            match bigint_to_u64(bigint) {
                 Some(v) => visitor.visit_u64(v),
                 None => Err(de::Error::custom(
                     "Couldn't deserialize u64 from a BigInt outside u64::MIN..u64::MAX bounds",
