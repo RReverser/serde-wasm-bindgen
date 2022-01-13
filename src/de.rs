@@ -272,7 +272,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
             } else if let Some(v) = self.bigint_to_u64(bigint) {
                 visitor.visit_u64(v)
             } else {
-                Err(de::Error::custom("The BigInt was outside the bounds of i64::MIN..u64::MAX"))
+                Err(de::Error::custom("Couldn't deserialize i64 or u64 from a BigInt outside i64::MIN..u64::MAX bounds"))
             }
 
         } else if let Some(v) = self.value.as_f64() {
