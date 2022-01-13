@@ -246,6 +246,9 @@ impl<'de> de::Deserializer<'de> for Deserializer {
             visitor.visit_unit()
         } else if let Some(v) = self.value.as_bool() {
             visitor.visit_bool(v)
+        } else if self.value.is_bigint() {
+            // TODO: Find a way to properly support tagged enums deserializing numbers between i64::MAX and u64::MAX
+            self.deserialize_i64(visitor)
         } else if let Some(v) = self.value.as_f64() {
             if Number::is_safe_integer(&self.value) {
                 visitor.visit_i64(v as i64)
