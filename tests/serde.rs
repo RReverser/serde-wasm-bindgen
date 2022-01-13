@@ -69,6 +69,16 @@ where
     test_via_json_with_config(value, Serializer::new());
 }
 
+fn test_via_round_trip<T>(value: T, serializer: Serializer)
+where
+    T: Serialize + DeserializeOwned + PartialEq + Debug + Clone,
+{
+    let original = value.clone();
+    let serialized = value.serialize(&serializer).unwrap();
+    let round_trip = from_value(serialized).unwrap();
+    assert_eq!(original, round_trip);
+}
+
 macro_rules! test_unsigned {
     ($ty:ident) => {{
         test_primitive::<$ty>(42 as _);
@@ -388,7 +398,7 @@ fn enums() {
         ExternallyTagged
     }
 
-    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
     #[serde(tag = "tag")]
     enum InternallyTagged<A, B>
     where
@@ -423,6 +433,14 @@ fn enums() {
             "b".to_string() => 64,
         }),
         Serializer::new().serialize_maps_as_objects(true),
+    );
+
+    test_via_round_trip(
+        InternallyTagged::Struct {
+            a: 10_u64,
+            b: -10_i64,
+        },
+        Serializer::new().serialize_large_number_types_as_bigints(true),
     );
 
     test_enum! {
