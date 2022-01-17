@@ -214,6 +214,7 @@ impl ser::SerializeStruct for ObjectSerializer<'_> {
 /// A [`serde::Serializer`] that converts supported Rust values into a [`JsValue`].
 #[derive(Default)]
 pub struct Serializer {
+    serialize_missing_as_null: bool,
     serialize_maps_as_objects: bool,
     serialize_large_number_types_as_bigints: bool,
 }
@@ -222,6 +223,25 @@ impl Serializer {
     /// Creates a new default [`Serializer`].
     pub fn new() -> Self {
         Default::default()
+    }
+
+    /// Creates a JSON compatible serializer. This uses null instead of undefined, and
+    /// uses plain objects instead of ES maps. So you will get the same result of
+    /// `JsValue::from_serde`, and you can stringify results to JSON and store
+    /// it without data loss.
+    pub fn json_compatible() -> Self {
+        Self {
+            serialize_missing_as_null: true,
+            serialize_maps_as_objects: true,
+            serialize_large_number_types_as_bigints: false,
+        }
+    }
+
+    /// Set to `true` to serialize `()`, unit structs and `Option::None` to `null`
+    /// instead of `undefined` in JS. `false` by default.
+    pub fn serialize_missing_as_null(mut self, value: bool) -> Self {
+        self.serialize_missing_as_null = value;
+        self
     }
 
     /// Set to `true` to serialize maps into plain JavaScript objects instead of
@@ -341,7 +361,7 @@ impl<'s> ser::Serializer for &'s Serializer {
     }
 
     fn serialize_none(self) -> Result {
-        Ok(JsValue::UNDEFINED)
+        self.serialize_unit()
     }
 
     fn serialize_some<T: ?Sized + Serialize>(self, value: &T) -> Result {
@@ -349,7 +369,11 @@ impl<'s> ser::Serializer for &'s Serializer {
     }
 
     fn serialize_unit(self) -> Result {
-        Ok(JsValue::UNDEFINED)
+        Ok(if self.serialize_missing_as_null {
+            JsValue::NULL
+        } else {
+            JsValue::UNDEFINED
+        })
     }
 
     fn serialize_unit_struct(self, _name: &'static str) -> Result {
