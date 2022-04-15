@@ -17,7 +17,10 @@ type Result<T> = std::result::Result<T, Error>;
 
 fn static_str_to_js(s: &'static str) -> JsString {
     thread_local! {
-        static CACHE: std::cell::RefCell<fnv::FnvHashMap<&'static str, JsString>> = Default::default();
+        // Since we're mainly optimising for converting the exact same string literal over and over again,
+        // which will always have the same pointer, we can speed things up by indexing by the string's pointer
+        // instead of its value.
+        static CACHE: std::cell::RefCell<fnv::FnvHashMap<*const str, JsString>> = Default::default();
     }
     CACHE.with(|cache| {
         cache
