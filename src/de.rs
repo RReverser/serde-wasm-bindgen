@@ -1,5 +1,7 @@
 use crate::bindings;
 use js_sys::{Array, ArrayBuffer, BigInt, JsString, Number, Object, Reflect, Symbol, Uint8Array};
+use serde::de::value::{MapDeserializer, SeqDeserializer};
+use serde::de::IntoDeserializer;
 use serde::{de, serde_if_integer128};
 use wasm_bindgen::{JsCast, JsValue};
 
@@ -28,6 +30,15 @@ impl<'de> de::SeqAccess<'de> for SeqAccess {
 struct MapAccess {
     iter: js_sys::IntoIter,
     next_value: Option<Deserializer>,
+}
+
+impl MapAccess {
+    fn new(iter: js_sys::IntoIter) -> Self {
+        Self {
+            iter,
+            next_value: None,
+        }
+    }
 }
 
 impl<'de> de::MapAccess<'de> for MapAccess {
@@ -137,6 +148,16 @@ pub struct Deserializer {
 impl From<JsValue> for Deserializer {
     fn from(value: JsValue) -> Self {
         Self { value }
+    }
+}
+
+// Ideally this would be implemented for `JsValue` instead, but we can't because
+// of the orphan rule.
+impl<'de> IntoDeserializer<'de, Error> for Deserializer {
+    type Deserializer = Self;
+
+    fn into_deserializer(self) -> Self::Deserializer {
+        self
     }
 }
 
@@ -463,14 +484,13 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     /// Supported outputs:
     ///  - Any Rust sequence from Serde point of view ([`Vec`], [`HashSet`](std::collections::HashSet), etc.)
     fn deserialize_seq<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        let iter = if let Some(arr) = self.value.dyn_ref::<Array>() {
-            arr.values().into_iter()
+        if let Some(arr) = self.value.dyn_ref::<Array>() {
+            visitor.visit_seq(SeqDeserializer::new(arr.iter().map(Deserializer::from)))
         } else if let Some(iter) = js_sys::try_iter(&self.value)? {
-            iter
+            visitor.visit_seq(SeqAccess { iter })
         } else {
-            return self.invalid_type(visitor);
-        };
-        visitor.visit_seq(SeqAccess { iter })
+            self.invalid_type(visitor)
+        }
     }
 
     /// Forwards to [`Self::deserialize_seq`](#method.deserialize_seq).
@@ -495,17 +515,13 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     ///  - A Rust key-value map ([`HashMap`](std::collections::HashMap), [`BTreeMap`](std::collections::BTreeMap), etc.).
     ///  - A typed Rust structure with `#[derive(Deserialize)]`.
     fn deserialize_map<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        let map = MapAccess {
-            iter: match js_sys::try_iter(&self.value)? {
-                Some(iter) => iter,
-                None => match self.as_object_entries() {
-                    Some(entries) => entries.values().into_iter(),
-                    None => return self.invalid_type(visitor),
-                },
+        match js_sys::try_iter(&self.value)? {
+            Some(iter) => visitor.visit_map(MapAccess::new(iter)),
+            None => match self.as_object_entries() {
+                Some(arr) => visitor.visit_map(MapDeserializer::new(arr.iter().map(convert_pair))),
+                None => self.invalid_type(visitor),
             },
-            next_value: None,
-        };
-        visitor.visit_map(map)
+        }
     }
 
     /// Supported inputs:
