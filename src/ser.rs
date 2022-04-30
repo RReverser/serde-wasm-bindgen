@@ -66,6 +66,7 @@ impl<S: ser::SerializeStruct<Ok = JsValue, Error = Error>> ser::SerializeStructV
 pub struct ArraySerializer<'s> {
     serializer: &'s Serializer,
     target: Array,
+    idx: u32,
 }
 
 impl<'s> ArraySerializer<'s> {
@@ -73,6 +74,7 @@ impl<'s> ArraySerializer<'s> {
         Self {
             serializer,
             target: Array::new(),
+            idx: 0,
         }
     }
 }
@@ -82,7 +84,8 @@ impl ser::SerializeSeq for ArraySerializer<'_> {
     type Error = Error;
 
     fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
-        self.target.push(&value.serialize(self.serializer)?);
+        self.target.set(self.idx, value.serialize(self.serializer)?);
+        self.idx += 1;
         Ok(())
     }
 
