@@ -14,7 +14,6 @@ keywords = ["serde", "serialization", "javascript", "wasm", "webassembly"]
 serde = "^1.0"
 js-sys = "^0.3"
 wasm-bindgen = "0.2.43"
-fnv = "^1.0"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.24"
