@@ -1,4 +1,7 @@
-use js_sys::{Array, ArrayBuffer, JsString, Number, Object, Reflect, Symbol, Uint8Array};
+use crate::bindings;
+use js_sys::{Array, ArrayBuffer, BigInt, JsString, Number, Object, Reflect, Symbol, Uint8Array};
+use serde::de::value::{MapDeserializer, SeqDeserializer};
+use serde::de::IntoDeserializer;
 use serde::{de, serde_if_integer128};
 use wasm_bindgen::{JsCast, JsValue};
 
@@ -27,6 +30,15 @@ impl<'de> de::SeqAccess<'de> for SeqAccess {
 struct MapAccess {
     iter: js_sys::IntoIter,
     next_value: Option<Deserializer>,
+}
+
+impl MapAccess {
+    fn new(iter: js_sys::IntoIter) -> Self {
+        Self {
+            iter,
+            next_value: None,
+        }
+    }
 }
 
 impl<'de> de::MapAccess<'de> for MapAccess {
@@ -139,10 +151,40 @@ impl From<JsValue> for Deserializer {
     }
 }
 
+// Ideally this would be implemented for `JsValue` instead, but we can't because
+// of the orphan rule.
+impl<'de> IntoDeserializer<'de, Error> for Deserializer {
+    type Deserializer = Self;
+
+    fn into_deserializer(self) -> Self::Deserializer {
+        self
+    }
+}
+
 /// Destructures a JS `[key, value]` pair into a tuple of [`Deserializer`]s.
 fn convert_pair(pair: JsValue) -> (Deserializer, Deserializer) {
     let pair = pair.unchecked_into::<Array>();
     (pair.get(0).into(), pair.get(1).into())
+}
+
+fn bigint_to_i64(bigint: &BigInt) -> Option<i64> {
+    let converted_number = bindings::bigint_to_i64(bigint);
+    // Do a round trip check in order to make sure that no information was lost
+    if &bindings::bigint_from_i64(converted_number) == bigint {
+        Some(converted_number)
+    } else {
+        None
+    }
+}
+
+fn bigint_to_u64(bigint: &BigInt) -> Option<u64> {
+    let converted_number = bindings::bigint_to_u64(bigint);
+    // Do a round trip check in order to make sure that no information was lost
+    if &bindings::bigint_from_u64(converted_number) == bigint {
+        Some(converted_number)
+    } else {
+        None
+    }
 }
 
 impl Deserializer {
@@ -212,6 +254,26 @@ impl Deserializer {
         }
         None
     }
+
+    fn deserialize_from_js_number_signed<'de, V: de::Visitor<'de>>(
+        &self,
+        visitor: V,
+    ) -> Result<V::Value> {
+        match self.as_safe_integer() {
+            Some(v) => visitor.visit_i64(v),
+            _ => self.invalid_type(visitor),
+        }
+    }
+
+    fn deserialize_from_js_number_unsigned<'de, V: de::Visitor<'de>>(
+        &self,
+        visitor: V,
+    ) -> Result<V::Value> {
+        match self.as_safe_integer() {
+            Some(v) if v >= 0 => visitor.visit_u64(v as _),
+            _ => self.invalid_type(visitor),
+        }
+    }
 }
 
 impl<'de> de::Deserializer<'de> for Deserializer {
@@ -225,6 +287,14 @@ impl<'de> de::Deserializer<'de> for Deserializer {
             visitor.visit_unit()
         } else if let Some(v) = self.value.as_bool() {
             visitor.visit_bool(v)
+        } else if let Some(bigint) = self.value.dyn_ref::<BigInt>() {
+            if let Some(v) = bigint_to_i64(bigint) {
+                visitor.visit_i64(v)
+            } else if let Some(v) = bigint_to_u64(bigint) {
+                visitor.visit_u64(v)
+            } else {
+                Err(de::Error::custom("Couldn't deserialize i64 or u64 from a BigInt outside i64::MIN..u64::MAX bounds"))
+            }
         } else if let Some(v) = self.value.as_f64() {
             if Number::is_safe_integer(&self.value) {
                 visitor.visit_i64(v as i64)
@@ -311,17 +381,18 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     // these to 64-bit methods to save some space in the generated WASM.
 
     fn deserialize_i8<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.deserialize_i64(visitor)
+        self.deserialize_from_js_number_signed(visitor)
     }
 
     fn deserialize_i16<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.deserialize_i64(visitor)
+        self.deserialize_from_js_number_signed(visitor)
     }
 
     fn deserialize_i32<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.deserialize_i64(visitor)
+        self.deserialize_from_js_number_signed(visitor)
     }
 
+    // TODO: Add i128 deserializer rather than forwarding to i64
     serde_if_integer128! {
         fn deserialize_i128<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
             self.deserialize_i64(visitor)
@@ -331,36 +402,47 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     // Same as above, but for `i64`.
 
     fn deserialize_u8<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.deserialize_u64(visitor)
+        self.deserialize_from_js_number_unsigned(visitor)
     }
 
     fn deserialize_u16<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.deserialize_u64(visitor)
+        self.deserialize_from_js_number_unsigned(visitor)
     }
 
     fn deserialize_u32<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.deserialize_u64(visitor)
+        self.deserialize_from_js_number_unsigned(visitor)
     }
 
+    // TODO: Add u128 deserializer rather than forwarding to u64
     serde_if_integer128! {
         fn deserialize_u128<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
             self.deserialize_u64(visitor)
         }
     }
 
-    // Define real `i64` / `u64` deserializers that try to cast from `f64`.
-
     fn deserialize_i64<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        match self.as_safe_integer() {
-            Some(v) => visitor.visit_i64(v),
-            None => self.invalid_type(visitor),
+        if let Some(bigint) = self.value.dyn_ref::<BigInt>() {
+            match bigint_to_i64(bigint) {
+                Some(v) => visitor.visit_i64(v),
+                None => Err(de::Error::custom(
+                    "Couldn't deserialize i64 from a BigInt outside i64::MIN..i64::MAX bounds",
+                )),
+            }
+        } else {
+            self.deserialize_from_js_number_signed(visitor)
         }
     }
 
     fn deserialize_u64<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        match self.as_safe_integer() {
-            Some(v) if v >= 0 => visitor.visit_u64(v as _),
-            _ => self.invalid_type(visitor),
+        if let Some(bigint) = self.value.dyn_ref::<BigInt>() {
+            match bigint_to_u64(bigint) {
+                Some(v) => visitor.visit_u64(v),
+                None => Err(de::Error::custom(
+                    "Couldn't deserialize u64 from a BigInt outside u64::MIN..u64::MAX bounds",
+                )),
+            }
+        } else {
+            self.deserialize_from_js_number_unsigned(visitor)
         }
     }
 
@@ -402,14 +484,13 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     /// Supported outputs:
     ///  - Any Rust sequence from Serde point of view ([`Vec`], [`HashSet`](std::collections::HashSet), etc.)
     fn deserialize_seq<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        let iter = if let Some(arr) = self.value.dyn_ref::<Array>() {
-            arr.values().into_iter()
+        if let Some(arr) = self.value.dyn_ref::<Array>() {
+            visitor.visit_seq(SeqDeserializer::new(arr.iter().map(Deserializer::from)))
         } else if let Some(iter) = js_sys::try_iter(&self.value)? {
-            iter
+            visitor.visit_seq(SeqAccess { iter })
         } else {
-            return self.invalid_type(visitor);
-        };
-        visitor.visit_seq(SeqAccess { iter })
+            self.invalid_type(visitor)
+        }
     }
 
     /// Forwards to [`Self::deserialize_seq`](#method.deserialize_seq).
@@ -434,17 +515,13 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     ///  - A Rust key-value map ([`HashMap`](std::collections::HashMap), [`BTreeMap`](std::collections::BTreeMap), etc.).
     ///  - A typed Rust structure with `#[derive(Deserialize)]`.
     fn deserialize_map<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        let map = MapAccess {
-            iter: match js_sys::try_iter(&self.value)? {
-                Some(iter) => iter,
-                None => match self.as_object_entries() {
-                    Some(entries) => entries.values().into_iter(),
-                    None => return self.invalid_type(visitor),
-                },
+        match js_sys::try_iter(&self.value)? {
+            Some(iter) => visitor.visit_map(MapAccess::new(iter)),
+            None => match self.as_object_entries() {
+                Some(arr) => visitor.visit_map(MapDeserializer::new(arr.iter().map(convert_pair))),
+                None => self.invalid_type(visitor),
             },
-            next_value: None,
-        };
-        visitor.visit_map(map)
+        }
     }
 
     /// Supported inputs:

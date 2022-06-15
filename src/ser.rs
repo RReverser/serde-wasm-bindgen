@@ -1,3 +1,4 @@
+use crate::bindings;
 use js_sys::{Array, JsString, Map, Object, Uint8Array};
 use serde::ser::{self, Error as _, Serialize};
 use wasm_bindgen::prelude::*;
@@ -65,6 +66,7 @@ impl<S: ser::SerializeStruct<Ok = JsValue, Error = Error>> ser::SerializeStructV
 pub struct ArraySerializer<'s> {
     serializer: &'s Serializer,
     target: Array,
+    idx: u32,
 }
 
 impl<'s> ArraySerializer<'s> {
@@ -72,6 +74,7 @@ impl<'s> ArraySerializer<'s> {
         Self {
             serializer,
             target: Array::new(),
+            idx: 0,
         }
     }
 }
@@ -81,7 +84,8 @@ impl ser::SerializeSeq for ArraySerializer<'_> {
     type Error = Error;
 
     fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
-        self.target.push(&value.serialize(self.serializer)?);
+        self.target.set(self.idx, value.serialize(self.serializer)?);
+        self.idx += 1;
         Ok(())
     }
 
@@ -213,7 +217,9 @@ impl ser::SerializeStruct for ObjectSerializer<'_> {
 /// A [`serde::Serializer`] that converts supported Rust values into a [`JsValue`].
 #[derive(Default)]
 pub struct Serializer {
+    serialize_missing_as_null: bool,
     serialize_maps_as_objects: bool,
+    serialize_large_number_types_as_bigints: bool,
 }
 
 impl Serializer {
@@ -222,10 +228,36 @@ impl Serializer {
         Default::default()
     }
 
+    /// Creates a JSON compatible serializer. This uses null instead of undefined, and
+    /// uses plain objects instead of ES maps. So you will get the same result of
+    /// `JsValue::from_serde`, and you can stringify results to JSON and store
+    /// it without data loss.
+    pub fn json_compatible() -> Self {
+        Self {
+            serialize_missing_as_null: true,
+            serialize_maps_as_objects: true,
+            serialize_large_number_types_as_bigints: false,
+        }
+    }
+
+    /// Set to `true` to serialize `()`, unit structs and `Option::None` to `null`
+    /// instead of `undefined` in JS. `false` by default.
+    pub fn serialize_missing_as_null(mut self, value: bool) -> Self {
+        self.serialize_missing_as_null = value;
+        self
+    }
+
     /// Set to `true` to serialize maps into plain JavaScript objects instead of
     /// ES2015 `Map`s. `false` by default.
     pub fn serialize_maps_as_objects(mut self, value: bool) -> Self {
         self.serialize_maps_as_objects = value;
+        self
+    }
+
+    /// Set to `true` to serialize 64-bit numbers to JavaScript `BigInt` instead of
+    /// plain numbers. `false` by default.
+    pub fn serialize_large_number_types_as_bigints(mut self, value: bool) -> Self {
+        self.serialize_large_number_types_as_bigints = value;
         self
     }
 }
@@ -267,8 +299,10 @@ impl<'s> ser::Serializer for &'s Serializer {
         serialize_str(&str);
     }
 
-    // TODO: we might want to support `BigInt` here in the future.
     fn serialize_i64(self, v: i64) -> Result {
+        if self.serialize_large_number_types_as_bigints {
+            return Ok(bindings::bigint_from_i64(v).into());
+        }
         const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
         const MIN_SAFE_INTEGER: i64 = -MAX_SAFE_INTEGER;
 
@@ -282,8 +316,11 @@ impl<'s> ser::Serializer for &'s Serializer {
         }
     }
 
-    // TODO: we might want to support `BigInt` here in the future.
     fn serialize_u64(self, v: u64) -> Result {
+        if self.serialize_large_number_types_as_bigints {
+            return Ok(bindings::bigint_from_u64(v).into());
+        }
+
         const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 
         if v <= MAX_SAFE_INTEGER {
@@ -293,6 +330,22 @@ impl<'s> ser::Serializer for &'s Serializer {
                 "{} can't be represented as a JavaScript number",
                 v
             )))
+        }
+    }
+
+    fn serialize_i128(self, v: i128) -> Result {
+        if self.serialize_large_number_types_as_bigints {
+            Ok(JsValue::from(v))
+        } else {
+            Err(Error::custom("To enable i128 serialization please use the serialize_large_number_types_as_bigints option"))
+        }
+    }
+
+    fn serialize_u128(self, v: u128) -> Result {
+        if self.serialize_large_number_types_as_bigints {
+            Ok(JsValue::from(v))
+        } else {
+            Err(Error::custom("To enable u128 serialization please use the serialize_large_number_types_as_bigints option"))
         }
     }
 
@@ -311,7 +364,7 @@ impl<'s> ser::Serializer for &'s Serializer {
     }
 
     fn serialize_none(self) -> Result {
-        Ok(JsValue::UNDEFINED)
+        self.serialize_unit()
     }
 
     fn serialize_some<T: ?Sized + Serialize>(self, value: &T) -> Result {
@@ -319,7 +372,11 @@ impl<'s> ser::Serializer for &'s Serializer {
     }
 
     fn serialize_unit(self) -> Result {
-        Ok(JsValue::UNDEFINED)
+        Ok(if self.serialize_missing_as_null {
+            JsValue::NULL
+        } else {
+            JsValue::UNDEFINED
+        })
     }
 
     fn serialize_unit_struct(self, _name: &'static str) -> Result {

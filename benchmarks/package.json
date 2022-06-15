@@ -3,5 +3,9 @@
   "private": true,
   "dependencies": {
     "benchmark": "^2.1.4"
+  },
+  "scripts": {
+    "pretest": "wasm-pack build -t nodejs --profiling",
+    "test": "node index.js"
   }
 }

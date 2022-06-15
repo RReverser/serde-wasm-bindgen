@@ -5,8 +5,6 @@ This is an alternative native integration of [Serde] with [wasm-bindgen].
 [serde]: https://serde.rs
 [wasm-bindgen]: https://github.com/rustwasm/wasm-bindgen
 
-## Motivation
-
 This library was created to address [wasm-bindgen#1258] and provide a native
 Serde integration for wasm-bindgen to directly convert values between JavaScript
 and Rust (compiled to WebAssembly).
@@ -31,7 +29,7 @@ natively in Wasm.
 
 [wasm-bindgen#1258]: https://github.com/rustwasm/wasm-bindgen/issues/1258
 [built-in implementation]: https://rustwasm.github.io/docs/wasm-bindgen/reference/arbitrary-data-with-serde.html
-[benchmarks]: benchmarks
+[benchmarks]: https://github.com/cloudflare/serde-wasm-bindgen/tree/master/benchmarks/src
 [reference types]: https://github.com/WebAssembly/reference-types
 
 ## Usage
@@ -63,6 +61,9 @@ to be strictly compatible with either [`serde_json`][serde_json] or,
 correspondingly, `JsValue::from_serde` / `JsValue::into_serde`, instead
 prioritising better compatibility with common JavaScript idioms and
 representations.
+
+If you need compatibility with them, or you want to use `JSON.stringify` on the
+result without data loss, use `Serializer::json_compatible()` as serializer.
 
 [serde_json]: https://docs.serde.rs/serde_json/
 
@@ -122,4 +123,4 @@ representation, so it chooses:
 
 ## License
 
-Licensed under the MIT license. See the [LICENSE](LICENSE) file for details.
+Licensed under the MIT license. See the [LICENSE](https://github.com/cloudflare/serde-wasm-bindgen/blob/master/LICENSE) file for details.
