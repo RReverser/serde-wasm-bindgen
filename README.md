@@ -1,20 +1,21 @@
 # `serde-wasm-bindgen`
 
-This is an alternative native integration of [Serde] with [wasm-bindgen].
+This is an alternative native integration of [Serde][https://serde.rs] with
+[wasm-bindgen](https://github.com/rustwasm/wasm-bindgen).
 
-[serde]: https://serde.rs
-[wasm-bindgen]: https://github.com/rustwasm/wasm-bindgen
+This library was created to address
+[wasm-bindgen#1258](https://github.com/rustwasm/wasm-bindgen/issues/1258) and
+provide a native Serde integration for wasm-bindgen to directly convert values
+between JavaScript and Rust (compiled to WebAssembly).
 
-This library was created to address [wasm-bindgen#1258] and provide a native
-Serde integration for wasm-bindgen to directly convert values between JavaScript
-and Rust (compiled to WebAssembly).
-
-The primary difference with the [built-in implementation] is that it leverages
-direct APIs for JavaScript value manipulation instead of passing around
-stringified JSON data. This allows it to support more types while producing a
-much leaner Wasm binary. In particular, it saved 26.6KB when comparing
-size-optimised and Brotli-compressed [benchmarks] with stripped debug
-information.
+The primary difference with the [built-in
+implementation](https://rustwasm.github.io/docs/wasm-bindgen/reference/arbitrary-data-with-serde.html)
+is that it leverages direct APIs for JavaScript value manipulation instead of
+passing around stringified JSON data. This allows it to support more types while
+producing a much leaner Wasm binary. In particular, it saved 26.6KB when
+comparing size-optimised and Brotli-compressed
+[benchmarks](https://github.com/cloudflare/serde-wasm-bindgen/tree/master/benchmarks/src)
+with stripped debug information.
 
 Performance-wise the library is currently comparable with the original. Specific
 numbers vary a lot between the engines and used data types and, according to
@@ -24,13 +25,9 @@ best cases. Your mileage might vary.
 These numbers are currently mostly saturated by the overhead of frequent
 JavaScript <-> Wasm and JavaScript <-> C++ calls. These calls are used for
 sharing JavaScript values with the Rust side as well as encoding/decoding UTF-8
-strings, and will go away in the future when [reference types] proposal lands
-natively in Wasm.
-
-[wasm-bindgen#1258]: https://github.com/rustwasm/wasm-bindgen/issues/1258
-[built-in implementation]: https://rustwasm.github.io/docs/wasm-bindgen/reference/arbitrary-data-with-serde.html
-[benchmarks]: https://github.com/cloudflare/serde-wasm-bindgen/tree/master/benchmarks/src
-[reference types]: https://github.com/WebAssembly/reference-types
+strings, and will go away in the future when [reference
+types](https://github.com/WebAssembly/reference-types) proposal lands natively
+in Wasm.
 
 ## Usage
 
@@ -57,15 +54,13 @@ Likewise, the `from_value` function can be used for deserialization.
 ## Supported Types
 
 Note that, even though it might often be the case, this library doesn't attempt
-to be strictly compatible with either [`serde_json`][serde_json] or,
-correspondingly, `JsValue::from_serde` / `JsValue::into_serde`, instead
-prioritising better compatibility with common JavaScript idioms and
-representations.
+to be strictly compatible with either
+[`serde_json`](https://docs.serde.rs/serde_json/) or, correspondingly,
+`JsValue::from_serde` / `JsValue::into_serde`, instead prioritising better
+compatibility with common JavaScript idioms and representations.
 
 If you need compatibility with them, or you want to use `JSON.stringify` on the
 result without data loss, use `Serializer::json_compatible()` as serializer.
-
-[serde_json]: https://docs.serde.rs/serde_json/
 
 ### Deserialization
 
@@ -85,21 +80,22 @@ result without data loss, use `Serializer::json_compatible()` as serializer.
 
 **Notes:**
 
-- †: The specific representation is [controlled] by `#[serde(...)]` attributes
-  and should be compatible with `serde-json`.
-- ‡: Excepts are [internally tagged] and [untagged] enums. These representations
-  currently do not support deserializing map-like iterables. They only support
-  deserialization from `Object` due to their special treatment in `serde`. This
-  restriction may be lifted at some point in the future if a `serde(with = ...)`
-  attribute can define the expected Javascript representation of the variant, or
-  if [serde-rs/serde#1183] gets resolved.
+- †: The specific representation is
+  [controlled](https://serde.rs/enum-representations.html) by `#[serde(...)]`
+  attributes and should be compatible with `serde-json`.
+- ‡: Excepts are [internally
+  tagged](https://serde.rs/enum-representations.html#internally-tagged) and
+  [untagged](https://serde.rs/enum-representations.html#untagged) enums. These
+  representations currently do not support deserializing map-like iterables.
+  They only support deserialization from `Object` due to their special treatment
+  in `serde`. This restriction may be lifted at some point in the future if a
+  `serde(with = ...)` attribute can define the expected Javascript
+  representation of the variant, or if
+  [serde-rs/serde#1183](https://github.com/serde-rs/serde/issues/1183) gets
+  resolved.
 
 [safe integer]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/isSafeInteger
-[internally tagged]: https://serde.rs/enum-representations.html#internally-tagged
-[untagged]: https://serde.rs/enum-representations.html#untagged
 [serde_bytes]: https://github.com/serde-rs/bytes
-[controlled]: https://serde.rs/enum-representations.html
-[serde-rs/serde#1183]: https://github.com/serde-rs/serde/issues/1183
 
 ### Serialization
 
@@ -123,4 +119,6 @@ representation, so it chooses:
 
 ## License
 
-Licensed under the MIT license. See the [LICENSE](https://github.com/cloudflare/serde-wasm-bindgen/blob/master/LICENSE) file for details.
+Licensed under the MIT license. See the
+[LICENSE](https://github.com/cloudflare/serde-wasm-bindgen/blob/master/LICENSE)
+file for details.
