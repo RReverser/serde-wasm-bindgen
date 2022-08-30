@@ -156,7 +156,7 @@ impl ser::SerializeMap for MapSerializer<'_> {
     }
 
     fn serialize_value<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
-        let key = self.next_key.take().unwrap();
+        let key = self.next_key.take().unwrap_throw();
         let value_ser = value.serialize(self.serializer)?;
         match &self.target {
             MapResult::Map(map) => {

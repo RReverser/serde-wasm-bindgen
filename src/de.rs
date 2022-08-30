@@ -3,7 +3,7 @@ use js_sys::{Array, ArrayBuffer, BigInt, JsString, Number, Object, Reflect, Symb
 use serde::de::value::{MapDeserializer, SeqDeserializer};
 use serde::de::IntoDeserializer;
 use serde::{de, serde_if_integer128};
-use wasm_bindgen::{JsCast, JsValue};
+use wasm_bindgen::{JsCast, JsValue, UnwrapThrowExt};
 
 use super::{static_str_to_js, Error, ObjectExt, Result};
 
@@ -58,7 +58,7 @@ impl<'de> de::MapAccess<'de> for MapAccess {
     }
 
     fn next_value_seed<V: de::DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value> {
-        seed.deserialize(self.next_value.take().unwrap())
+        seed.deserialize(self.next_value.take().unwrap_throw())
     }
 
     fn next_entry_seed<K: de::DeserializeSeed<'de>, V: de::DeserializeSeed<'de>>(
@@ -98,7 +98,7 @@ impl<'de> de::MapAccess<'de> for ObjectAccess {
     }
 
     fn next_value_seed<V: de::DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value> {
-        let (field, fields) = self.fields.split_first().unwrap();
+        let (field, fields) = self.fields.split_first().unwrap_throw();
         self.fields = fields;
         let value = self.obj.get(static_str_to_js(field));
         seed.deserialize(Deserializer::from(value))
