@@ -609,3 +609,21 @@ fn maps_objects_object_key() {
         Error::custom("Map key is not a string and cannot be an object key").to_string()
     );
 }
+
+#[wasm_bindgen_test]
+fn serde_default_fields() {
+    #[derive(Deserialize)]
+    #[allow(dead_code)]
+    struct Struct {
+        data: String,
+        #[serde(default)]
+        missing: bool,
+        opt_field: Option<String>,
+    }
+
+    let json = r#"{"data": "testing"}"#;
+    let obj = js_sys::JSON::parse(json).unwrap();
+
+    // Check that it parses successfully despite the missing field.
+    let _struct: Struct = from_value(obj).unwrap();
+}

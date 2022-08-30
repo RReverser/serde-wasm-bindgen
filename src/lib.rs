@@ -63,7 +63,7 @@ extern "C" {
     type ObjectExt;
 
     #[wasm_bindgen(method, indexing_getter)]
-    fn get(this: &ObjectExt, key: JsString) -> JsValue;
+    fn get_with_ref_key(this: &ObjectExt, key: &JsString) -> JsValue;
 
     #[wasm_bindgen(method, indexing_setter)]
     fn set(this: &ObjectExt, key: JsString, value: JsValue);
