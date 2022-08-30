@@ -303,10 +303,10 @@ impl<'s> ser::Serializer for &'s Serializer {
         if self.serialize_large_number_types_as_bigints {
             return Ok(bindings::bigint_from_i64(v).into());
         }
-        const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
-        const MIN_SAFE_INTEGER: i64 = -MAX_SAFE_INTEGER;
 
-        if v >= MIN_SAFE_INTEGER && v <= MAX_SAFE_INTEGER {
+        const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
+
+        if v.abs() <= MAX_SAFE_INTEGER {
             self.serialize_f64(v as _)
         } else {
             Err(Error::custom(format_args!(
