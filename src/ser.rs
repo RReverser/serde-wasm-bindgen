@@ -304,9 +304,12 @@ impl<'s> ser::Serializer for &'s Serializer {
             return Ok(bindings::bigint_from_i64(v).into());
         }
 
+        // Note: don't try to "simplify" by using `.abs()` as it can overflow,
+        // but range check can't.
+        const MIN_SAFE_INTEGER: i64 = -9_007_199_254_740_991;
         const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
 
-        if v.abs() <= MAX_SAFE_INTEGER {
+        if (MIN_SAFE_INTEGER..=MAX_SAFE_INTEGER).contains(&v) {
             self.serialize_f64(v as _)
         } else {
             Err(Error::custom(format_args!(
