@@ -302,7 +302,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
             //
             // Hopefully we can rid of these hacks altogether once
             // https://github.com/serde-rs/serde/issues/1183 is implemented / fixed on serde side.
-            !Reflect::has(&self.value, &Symbol::iterator()).unwrap_or(false)
+            !Symbol::iterator().js_in(&self.value)
         {
             self.deserialize_map(visitor)
         } else {
