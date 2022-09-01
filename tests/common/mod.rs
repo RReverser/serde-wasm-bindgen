@@ -263,21 +263,7 @@ mod compat {
     }
 
     macro_rules! test_bigint_boundaries {
-        (signed $ty:ident) => {
-            // Safe integer boundaries.
-            test_via_into::<$ty, f64>(-9_007_199_254_740_991, -9_007_199_254_740_991.0);
-            from_value::<$ty>(JsValue::from(-9_007_199_254_740_992.0)).unwrap_err();
-            test_primitive_with_config::<$ty>(-9_007_199_254_740_992, &BIGINT_SERIALIZER);
-
-            test_bigint_boundaries!(unsigned $ty);
-        };
-
-        (unsigned $ty:ident) => {
-            // Safe integer boundaries.
-            test_via_into::<$ty, f64>(9_007_199_254_740_991, 9_007_199_254_740_991.0);
-            from_value::<$ty>(9_007_199_254_740_992.0.into()).unwrap_err();
-            test_primitive_with_config::<$ty>(9_007_199_254_740_992, &BIGINT_SERIALIZER);
-
+        ($ty:ident) => {
             test_primitive_with_config($ty::MIN, &BIGINT_SERIALIZER);
             test_primitive_with_config($ty::MAX, &BIGINT_SERIALIZER);
 
@@ -286,6 +272,22 @@ mod compat {
 
             let too_large = BigInt::from($ty::MAX) + BigInt::from(1);
             from_value::<$ty>(too_large.into()).unwrap_err();
+        };
+    }
+
+    macro_rules! test_safe_int_boundaries {
+        (signed $ty:ident) => {
+            test_via_into::<$ty, f64>(-9_007_199_254_740_991, -9_007_199_254_740_991.0);
+            from_value::<$ty>(JsValue::from(-9_007_199_254_740_992.0)).unwrap_err();
+            test_primitive_with_config::<$ty>(-9_007_199_254_740_992, &BIGINT_SERIALIZER);
+
+            test_safe_int_boundaries!(unsigned $ty);
+        };
+
+        (unsigned $ty:ident) => {
+            test_via_into::<$ty, f64>(9_007_199_254_740_991, 9_007_199_254_740_991.0);
+            from_value::<$ty>(9_007_199_254_740_992.0.into()).unwrap_err();
+            test_primitive_with_config::<$ty>(9_007_199_254_740_992, &BIGINT_SERIALIZER);
         };
     }
 
@@ -349,7 +351,8 @@ mod compat {
 
     #[wasm_bindgen_test]
     fn i64() {
-        test_bigint_boundaries!(signed i64);
+        test_bigint_boundaries!(i64);
+        test_safe_int_boundaries!(signed i64);
         test_value_compatibility!(i64 {
             ValueKind::PosInt => 1,
             ValueKind::NegInt => -1,
@@ -360,8 +363,29 @@ mod compat {
 
     #[wasm_bindgen_test]
     fn u64() {
-        test_bigint_boundaries!(unsigned u64);
+        test_bigint_boundaries!(u64);
+        test_safe_int_boundaries!(unsigned u64);
         test_value_compatibility!(u64 {
+            ValueKind::PosInt => 1,
+            ValueKind::PosBigInt -> 1,
+        });
+    }
+
+    #[wasm_bindgen_test]
+    fn isize() {
+        test_bigint_boundaries!(isize);
+        test_value_compatibility!(isize {
+            ValueKind::PosInt => 1,
+            ValueKind::NegInt => -1,
+            ValueKind::PosBigInt -> 1,
+            ValueKind::NegBigInt -> -1,
+        });
+    }
+
+    #[wasm_bindgen_test]
+    fn usize() {
+        test_bigint_boundaries!(usize);
+        test_value_compatibility!(usize {
             ValueKind::PosInt => 1,
             ValueKind::PosBigInt -> 1,
         });
