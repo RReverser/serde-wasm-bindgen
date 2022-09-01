@@ -16,7 +16,7 @@ pub struct VariantSerializer<S> {
 }
 
 impl<S> VariantSerializer<S> {
-    pub fn new(variant: &'static str, inner: S) -> Self {
+    pub const fn new(variant: &'static str, inner: S) -> Self {
         Self { variant, inner }
     }
 
@@ -224,15 +224,19 @@ pub struct Serializer {
 
 impl Serializer {
     /// Creates a new default [`Serializer`].
-    pub fn new() -> Self {
-        Default::default()
+    pub const fn new() -> Self {
+        Self {
+            serialize_missing_as_null: false,
+            serialize_maps_as_objects: false,
+            serialize_large_number_types_as_bigints: false,
+        }
     }
 
     /// Creates a JSON compatible serializer. This uses null instead of undefined, and
     /// uses plain objects instead of ES maps. So you will get the same result of
     /// `JsValue::from_serde`, and you can stringify results to JSON and store
     /// it without data loss.
-    pub fn json_compatible() -> Self {
+    pub const fn json_compatible() -> Self {
         Self {
             serialize_missing_as_null: true,
             serialize_maps_as_objects: true,
@@ -242,21 +246,21 @@ impl Serializer {
 
     /// Set to `true` to serialize `()`, unit structs and `Option::None` to `null`
     /// instead of `undefined` in JS. `false` by default.
-    pub fn serialize_missing_as_null(mut self, value: bool) -> Self {
+    pub const fn serialize_missing_as_null(mut self, value: bool) -> Self {
         self.serialize_missing_as_null = value;
         self
     }
 
     /// Set to `true` to serialize maps into plain JavaScript objects instead of
     /// ES2015 `Map`s. `false` by default.
-    pub fn serialize_maps_as_objects(mut self, value: bool) -> Self {
+    pub const fn serialize_maps_as_objects(mut self, value: bool) -> Self {
         self.serialize_maps_as_objects = value;
         self
     }
 
     /// Set to `true` to serialize 64-bit numbers to JavaScript `BigInt` instead of
     /// plain numbers. `false` by default.
-    pub fn serialize_large_number_types_as_bigints(mut self, value: bool) -> Self {
+    pub const fn serialize_large_number_types_as_bigints(mut self, value: bool) -> Self {
         self.serialize_large_number_types_as_bigints = value;
         self
     }

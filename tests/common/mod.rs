@@ -1,5 +1,6 @@
-use js_sys::BigInt;
+use js_sys::{BigInt, JsString, Number, Object};
 use maplit::{btreemap, hashmap, hashset};
+use proptest::prelude::*;
 use serde::de::DeserializeOwned;
 use serde::ser::Error as SerError;
 use serde::{Deserialize, Serialize};
@@ -8,344 +9,399 @@ use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::hash::Hash;
 use wasm_bindgen::{JsCast, JsValue};
-use wasm_bindgen_test::*;
+use wasm_bindgen_test::wasm_bindgen_test;
 
-fn test_via_into<L, R>(lhs: L, rhs: R)
+const SERIALIZER: Serializer = Serializer::new();
+
+const BIGINT_SERIALIZER: Serializer =
+    Serializer::new().serialize_large_number_types_as_bigints(true);
+
+const MAP_OBJECT_SERIALIZER: Serializer = Serializer::new().serialize_maps_as_objects(true);
+
+fn test_via_round_trip_with_config<T>(value: T, serializer: &Serializer) -> JsValue
 where
-    L: Serialize + DeserializeOwned + PartialEq + Debug,
-    R: Into<JsValue>,
+    T: Serialize + DeserializeOwned + PartialEq + Debug,
 {
-    test_via_into_with_config(lhs, rhs, &Serializer::new())
+    let serialized = value.serialize(serializer).unwrap();
+    let round_trip = from_value(serialized.clone()).unwrap();
+    assert_eq!(
+        value, round_trip,
+        "{:?} != from_value({:?})",
+        value, serialized
+    );
+    serialized
 }
 
 fn test_via_into_with_config<L, R>(lhs: L, rhs: R, serializer: &Serializer)
 where
-    L: Serialize + DeserializeOwned + PartialEq + Debug,
-    R: Into<JsValue>,
+    L: Serialize + DeserializeOwned + PartialEq + Clone + Debug,
+    R: Into<JsValue> + Clone + Debug,
 {
-    let lhs_value = lhs.serialize(serializer).unwrap();
-    assert_eq!(lhs_value, rhs.into(), "to_value from {:?}", lhs);
-    let restored_lhs = from_value(lhs_value.clone()).unwrap();
-    assert_eq!(lhs, restored_lhs, "from_value from {:?}", lhs_value);
+    let serialized = test_via_round_trip_with_config(lhs.clone(), serializer);
+    assert_eq!(
+        serialized,
+        rhs.clone().into(),
+        "to_value({:?}) != JsValue::from({:?})",
+        lhs,
+        rhs
+    );
+}
+
+fn test_via_into<L, R>(lhs: L, rhs: R)
+where
+    L: Serialize + DeserializeOwned + PartialEq + Clone + Debug,
+    R: Into<JsValue> + Clone + Debug,
+{
+    test_via_into_with_config(lhs, rhs, &SERIALIZER)
+}
+
+fn test_primitive_with_config<T>(value: T, serializer: &Serializer)
+where
+    T: Copy + Serialize + Into<JsValue> + DeserializeOwned + PartialEq + Debug,
+{
+    test_via_into_with_config(value, value, serializer)
 }
 
 fn test_primitive<T>(value: T)
 where
     T: Copy + Serialize + Into<JsValue> + DeserializeOwned + PartialEq + Debug,
 {
-    test_via_into(value, value);
+    test_via_into(value, value)
 }
 
-fn assert_json<R>(lhs_value: JsValue, rhs: R)
-where
-    R: Serialize + DeserializeOwned + PartialEq + Debug,
-{
-    if lhs_value.is_undefined() {
-        assert_eq!("null", serde_json::to_string(&rhs).unwrap())
-    } else {
-        assert_eq!(
-            js_sys::JSON::stringify(&lhs_value).unwrap(),
-            serde_json::to_string(&rhs).unwrap(),
-        );
-    }
-
-    let restored_lhs: R = from_value(lhs_value.clone()).unwrap();
-    assert_eq!(restored_lhs, rhs, "from_value from {:?}", lhs_value);
+#[derive(PartialEq)]
+enum ValueKind {
+    Null,
+    Undefined,
+    Boolean,
+    PosFloat,
+    NegFloat,
+    NaN,
+    PosInfinity,
+    NegInfinity,
+    PosInt,
+    NegInt,
+    PosBigInt,
+    NegBigInt,
+    String,
+    Object,
 }
 
-fn test_via_json_with_config<T>(value: T, serializer: Serializer)
-where
-    T: Serialize + DeserializeOwned + PartialEq + Debug,
-{
-    assert_json(value.serialize(&serializer).unwrap(), value);
+fn sample_js_values() -> Vec<(ValueKind, JsValue)> {
+    vec![
+        (ValueKind::Null, JsValue::NULL),
+        (ValueKind::Undefined, JsValue::UNDEFINED),
+        (ValueKind::Boolean, JsValue::TRUE),
+        (ValueKind::PosFloat, JsValue::from(0.5)),
+        (ValueKind::NegFloat, JsValue::from(-0.5)),
+        (ValueKind::NaN, JsValue::from(std::f64::NAN)),
+        (ValueKind::PosInfinity, JsValue::from(std::f64::INFINITY)),
+        (ValueKind::NegInfinity, JsValue::from(-std::f64::INFINITY)),
+        (ValueKind::PosInt, JsValue::from(1)),
+        (ValueKind::NegInt, JsValue::from(-1)),
+        (ValueKind::PosBigInt, JsValue::from(BigInt::from(1_i64))),
+        (ValueKind::NegBigInt, JsValue::from(BigInt::from(-1_i64))),
+        (ValueKind::String, JsValue::from("1")),
+        (ValueKind::Object, Object::new().into()),
+    ]
 }
 
-fn test_via_json<T>(value: T)
-where
-    T: Serialize + DeserializeOwned + PartialEq + Debug,
-{
-    test_via_json_with_config(value, Serializer::new());
-}
-
-fn test_via_round_trip<T>(value: T, serializer: Serializer)
-where
-    T: Serialize + DeserializeOwned + PartialEq + Debug + Clone,
-{
-    let original = value.clone();
-    let serialized = value.serialize(&serializer).unwrap();
-    let round_trip = from_value(serialized).unwrap();
-    assert_eq!(original, round_trip);
-}
-
-macro_rules! test_unsigned {
-    ($ty:ident) => {{
-        test_primitive::<$ty>(42 as _);
-        test_primitive::<$ty>(std::$ty::MIN);
-        test_primitive::<$ty>(std::$ty::MAX);
-    }};
-}
-
-macro_rules! test_signed {
-    ($ty:ident) => {{
-        test_primitive::<$ty>(0 as _);
-        test_primitive::<$ty>(-42 as _);
-        test_unsigned!($ty);
-    }};
-}
-
-macro_rules! test_float {
-    ($ty:ident) => {{
-        test_primitive::<$ty>(0.42);
-        test_primitive::<$ty>(-0.42);
-        test_signed!($ty);
-        test_primitive::<$ty>(std::$ty::EPSILON);
-        test_primitive::<$ty>(std::$ty::MIN_POSITIVE);
-        assert!(match to_value::<$ty>(&std::$ty::NAN).unwrap().as_f64() {
-            Some(v) => v.is_nan(),
-            None => false,
-        });
-        test_primitive::<$ty>(std::$ty::INFINITY);
-        test_primitive::<$ty>(std::$ty::NEG_INFINITY);
-    }};
-}
-
-macro_rules! test_enum {
-    ($(# $attr:tt)* $name:ident) => {{
-        #[derive(Debug, PartialEq, Serialize, Deserialize)]
-        $(# $attr)*
-        enum $name<A, B> where A: Debug + Ord + Eq {
-            Unit,
-            Newtype(A),
-            Tuple(A, B),
-            Struct { a: A, b: B },
-            Map(BTreeMap<A, B>),
-            Seq { seq: Vec<B> } // internal tags cannot be directly embedded in arrays
-        }
-
-        test_via_json($name::Unit::<String, i32>);
-        test_via_json($name::Newtype::<_, i32>("newtype content".to_string()));
-        test_via_json($name::Tuple("tuple content".to_string(), 42));
-        test_via_json($name::Struct {
-            a: "struct content".to_string(),
-            b: 42,
-        });
-        test_via_json_with_config($name::Map::<String, i32>(
-            btreemap!{
-                "a".to_string() => 12,
-                "abc".to_string() => -1161,
-                "b".to_string() => 64,
+macro_rules! test_value_compatibility {
+    ($ty:ty { $(ValueKind::$kind:ident $delim:tt $rust_value:expr,)* }) => {
+        for (kind, js_value) in sample_js_values() {
+            match kind {
+                $(ValueKind::$kind => {
+                    let rust_value: $ty = $rust_value;
+                    test_value_compatibility!(@compare $ty, $kind $delim rust_value, js_value);
+                })*
+                _ => {
+                    from_value::<$ty>(js_value).unwrap_err();
+                }
             }
-        ), Serializer::new().serialize_maps_as_objects(true));
-        test_via_json($name::Seq::<i32, i32> { seq: vec![5, 63, 0, -62, 6] });
+        }
+    };
+
+    (@compare $ty:ty, NaN => $rust_value:expr, $js_value:expr) => {{
+        let mut rust_value: $ty = $rust_value;
+        assert!(rust_value.is_nan(), "{:?} is not NaN", rust_value);
+
+        let js_value = to_value(&rust_value).unwrap();
+        assert!(Number::is_nan(&js_value), "{:?} is not NaN", js_value);
+
+        rust_value = from_value(js_value).unwrap();
+        assert!(rust_value.is_nan(), "{:?} is not NaN", rust_value);
     }};
+
+    (@compare $ty:ty, $kind:ident -> $rust_value:expr, $js_value:expr) => {{
+        assert_ne!(to_value(&$rust_value).unwrap(), $js_value, "to_value from {:?}", $rust_value);
+        let rust_value: $ty = from_value($js_value.clone()).unwrap();
+        assert_eq!(rust_value, $rust_value, "from_value from {:?}", $js_value);
+    }};
+
+    (@compare $ty:ty, $kind:ident => $rust_value:expr, $js_value:expr) => (
+        test_via_into::<$ty, JsValue>($rust_value, $js_value)
+    );
 }
 
 #[wasm_bindgen_test]
 fn unit() {
     test_via_into((), JsValue::UNDEFINED);
+    test_value_compatibility!(() {
+        ValueKind::Undefined => (),
+        // Special case: one-way only conversion.
+        ValueKind::Null -> (),
+    });
 }
 
-#[wasm_bindgen_test]
-fn bool() {
-    test_primitive(false);
-    test_primitive(true);
-}
+mod proptests {
+    use super::*;
 
-#[wasm_bindgen_test]
-fn numbers() {
-    test_signed!(i8);
-    test_unsigned!(u8);
+    proptest! {
+        #[wasm_bindgen_test]
+        fn bool(value: bool) {
+            test_primitive(value);
+        }
 
-    test_signed!(i16);
-    test_unsigned!(u16);
+        #[wasm_bindgen_test]
+        fn i8(value: i8) {
+            test_primitive(value);
+        }
 
-    test_signed!(i32);
-    test_unsigned!(u32);
+        #[wasm_bindgen_test]
+        fn i16(value: i16) {
+            test_primitive(value);
+        }
 
-    test_float!(f32);
-    test_float!(f64);
+        #[wasm_bindgen_test]
+        fn i32(value: i32) {
+            test_primitive(value);
+        }
 
-    {
-        const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
+        #[wasm_bindgen_test]
+        fn u8(value: u8) {
+            test_primitive(value);
+        }
 
-        test_via_into(0_i64, 0_f64);
-        test_via_into(42_i64, 42_f64);
-        test_via_into(-42_i64, -42_f64);
-        test_via_into(MAX_SAFE_INTEGER, MAX_SAFE_INTEGER as f64);
-        test_via_into(-MAX_SAFE_INTEGER, -MAX_SAFE_INTEGER as f64);
-        to_value(&(MAX_SAFE_INTEGER + 1)).unwrap_err();
-        to_value(&-(MAX_SAFE_INTEGER + 1)).unwrap_err();
-        to_value(&std::i64::MIN).unwrap_err();
-        to_value(&std::i64::MAX).unwrap_err();
-    }
+        #[wasm_bindgen_test]
+        fn u16(value: u16) {
+            test_primitive(value);
+        }
 
-    {
-        const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
+        #[wasm_bindgen_test]
+        fn u32(value: u32) {
+            test_primitive(value);
+        }
 
-        test_via_into(0_u64, 0_f64);
-        test_via_into(42_u64, 42_f64);
-        test_via_into(MAX_SAFE_INTEGER, MAX_SAFE_INTEGER as f64);
-        to_value(&(MAX_SAFE_INTEGER + 1)).unwrap_err();
-        to_value(&std::u64::MAX).unwrap_err();
-    }
+        #[wasm_bindgen_test]
+        fn f32(value: f32) {
+            test_primitive(value);
+        }
 
-    // By default serializing i128 and u128 results in an error
-    {
-        to_value(&0_i128).unwrap_err();
-        to_value(&0_u128).unwrap_err();
-    }
+        #[wasm_bindgen_test]
+        fn f64(value: f64) {
+            test_primitive(value);
+        }
 
-    // By default deserializing i128 and u128 uses 64 bit implementation
-    {
-        assert_eq!(from_value::<i128>(JsValue::from(0_i128)).unwrap(), 0);
-        assert_eq!(from_value::<i128>(JsValue::from(42_i128)).unwrap(), 42);
-        assert_eq!(from_value::<i128>(JsValue::from(-42_i128)).unwrap(), -42);
-        assert_eq!(from_value::<u128>(JsValue::from(0_u128)).unwrap(), 0);
-        assert_eq!(from_value::<u128>(JsValue::from(42_u128)).unwrap(), 42);
-    }
+        #[wasm_bindgen_test]
+        fn i64_bigints(value: i64) {
+            test_primitive_with_config(value, &BIGINT_SERIALIZER);
+        }
 
-    // Test large number bigint serialization feature
-    let bigint_serializer = Serializer::new().serialize_large_number_types_as_bigints(true);
-    {
-        const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
+        #[wasm_bindgen_test]
+        fn u64_bigints(value: i64) {
+            test_primitive_with_config(value, &BIGINT_SERIALIZER);
+        }
 
-        // Should be bigint
-        assert!(0_i64.serialize(&bigint_serializer).unwrap().is_bigint());
+        #[wasm_bindgen_test]
+        fn i64_numbers(value in -9_007_199_254_740_991..=9_007_199_254_740_991_i64) {
+            test_via_into(value, value as f64);
+        }
 
-        // u64 and i64 should serialize the same
-        test_via_into_with_config(0_i64, 0_u64, &bigint_serializer);
-        test_via_into_with_config(42_i64, 42_u64, &bigint_serializer);
+        #[wasm_bindgen_test]
+        fn u64_numbers(value in 0..=9_007_199_254_740_991_u64) {
+            test_via_into(value, value as f64);
+        }
 
-        // Js-numbers should also deserialize into 64 bit types
-        assert_eq!(from_value::<i64>(JsValue::from_f64(1.0)).unwrap(), 1);
-        assert_eq!(from_value::<i64>(JsValue::from_f64(-1.0)).unwrap(), -1);
+        #[wasm_bindgen_test]
+        fn isize(value: isize) {
+            test_via_into(value, value as f64);
+            test_primitive_with_config(value, &BIGINT_SERIALIZER);
+        }
 
-        // Invalid floats should fail
-        from_value::<i64>(JsValue::from_f64(1.5)).unwrap_err();
-        from_value::<i64>(JsValue::from_f64(-10.2)).unwrap_err();
+        #[wasm_bindgen_test]
+        fn usize(value: isize) {
+            test_via_into(value, value as f64);
+            test_primitive_with_config(value, &BIGINT_SERIALIZER);
+        }
 
-        // Big ints that are too large or small should error
-        from_value::<i64>(BigInt::from(i128::MAX).into()).unwrap_err();
-        from_value::<i64>(BigInt::from(i128::MIN).into()).unwrap_err();
+        #[wasm_bindgen_test]
+        fn char(c: char) {
+            test_via_into(c, String::from(c));
+        }
 
-        // Test near max safe float
-        assert_eq!(
-            (MAX_SAFE_INTEGER + 1)
-                .serialize(&bigint_serializer)
-                .unwrap(),
-            MAX_SAFE_INTEGER + 1
-        );
-        assert_eq!(
-            (-(MAX_SAFE_INTEGER + 1))
-                .serialize(&bigint_serializer)
-                .unwrap(),
-            -(MAX_SAFE_INTEGER + 1)
-        );
-
-        // Handle extreme values
-        assert_eq!(
-            std::i64::MIN.serialize(&bigint_serializer).unwrap(),
-            JsValue::from(std::i64::MIN)
-        );
-        assert_eq!(
-            std::i64::MAX.serialize(&bigint_serializer).unwrap(),
-            JsValue::from(std::i64::MAX)
-        );
-    }
-
-    {
-        const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
-
-        // Should be bigint
-        assert!(0_u64.serialize(&bigint_serializer).unwrap().is_bigint());
-
-        // u64 and i64 should serialize the same
-        test_via_into_with_config(0_u64, 0_i64, &bigint_serializer);
-        test_via_into_with_config(42_u64, 42_i64, &bigint_serializer);
-        test_via_into_with_config(
-            MAX_SAFE_INTEGER,
-            MAX_SAFE_INTEGER as i64,
-            &bigint_serializer,
-        );
-
-        // Can still deserialize from JS numbers
-        assert_eq!(from_value::<u64>(JsValue::from_f64(1.0)).unwrap(), 1);
-
-        // Invalid floats should fail
-        from_value::<u64>(JsValue::from_f64(1.5)).unwrap_err();
-        from_value::<u64>(JsValue::from_f64(-10.2)).unwrap_err();
-
-        // Big ints that are too large or small should error
-        from_value::<u64>(BigInt::from(i128::MAX).into()).unwrap_err();
-        from_value::<u64>(BigInt::from(i128::MIN).into()).unwrap_err();
-
-        // Test large numbers
-        assert_eq!(
-            (MAX_SAFE_INTEGER + 1)
-                .serialize(&bigint_serializer)
-                .unwrap(),
-            (MAX_SAFE_INTEGER + 1)
-        );
-        assert_eq!(
-            std::u64::MAX.serialize(&bigint_serializer).unwrap(),
-            JsValue::from(std::u64::MAX)
-        );
-    }
-
-    // i128 and u128 should serialize to bigint when the feature is enabled
-    {
-        // Should be bigint
-        assert!(0_i128.serialize(&bigint_serializer).unwrap().is_bigint());
-
-        // i128 and u128 should serialize the same
-        test_via_into_with_config(0_u128, 0_i128, &bigint_serializer);
-        test_via_into_with_config(42_u128, 42_i128, &bigint_serializer);
-
-        // Can still deserialize from JS numbers
-        assert_eq!(from_value::<i128>(JsValue::from_f64(1.0)).unwrap(), 1);
-
-        // Invalid floats should fail
-        from_value::<i128>(JsValue::from_f64(1.5)).unwrap_err();
-        from_value::<i128>(JsValue::from_f64(-10.2)).unwrap_err();
-    }
-
-    {
-        // Should be bigint
-        assert!(0_u128.serialize(&bigint_serializer).unwrap().is_bigint());
-
-        // i128 and u128 should serialize the same
-        test_via_into_with_config(0_i128, 0_u128, &bigint_serializer);
-        test_via_into_with_config(42_i128, 42_u128, &bigint_serializer);
-
-        // Can still deserialize from JS numbers
-        assert_eq!(from_value::<u128>(JsValue::from_f64(1.0)).unwrap(), 1);
-
-        // Invalid floats should fail
-        from_value::<u128>(JsValue::from_f64(1.5)).unwrap_err();
-        from_value::<u128>(JsValue::from_f64(-10.2)).unwrap_err();
+        #[wasm_bindgen_test]
+        fn string(s: String) {
+            test_via_into(s.clone(), s);
+        }
     }
 }
 
-#[wasm_bindgen_test]
-fn strings() {
-    fn test_str(s: &'static str) {
-        let value = to_value(s).unwrap();
-        assert_eq!(value, s);
-        let restored: String = from_value(value).unwrap();
-        assert_eq!(s, restored);
+mod compat {
+    use super::*;
+
+    macro_rules! test_int_boundaries {
+        ($ty:ident) => {
+            test_primitive::<$ty>($ty::MIN);
+            test_primitive::<$ty>($ty::MAX);
+
+            let too_small = f64::from($ty::MIN) - 1.0;
+            from_value::<$ty>(too_small.into()).unwrap_err();
+
+            let too_large = f64::from($ty::MAX) + 1.0;
+            from_value::<$ty>(too_large.into()).unwrap_err();
+        };
     }
 
-    test_str("");
-    test_str("abc");
-    test_str("\0");
-    test_str("😃");
-}
+    macro_rules! test_bigint_boundaries {
+        (signed $ty:ident) => {
+            // Safe integer boundaries.
+            test_via_into::<$ty, f64>(-9_007_199_254_740_991, -9_007_199_254_740_991.0);
+            from_value::<$ty>(JsValue::from(-9_007_199_254_740_992.0)).unwrap_err();
+            test_primitive_with_config::<$ty>(-9_007_199_254_740_992, &BIGINT_SERIALIZER);
 
-#[wasm_bindgen_test]
-fn chars() {
-    test_via_into('a', "a");
-    test_via_into('\0', "\0");
-    test_via_into('😃', "😃");
+            test_bigint_boundaries!(unsigned $ty);
+        };
+
+        (unsigned $ty:ident) => {
+            // Safe integer boundaries.
+            test_via_into::<$ty, f64>(9_007_199_254_740_991, 9_007_199_254_740_991.0);
+            from_value::<$ty>(9_007_199_254_740_992.0.into()).unwrap_err();
+            test_primitive_with_config::<$ty>(9_007_199_254_740_992, &BIGINT_SERIALIZER);
+
+            test_primitive_with_config($ty::MIN, &BIGINT_SERIALIZER);
+            test_primitive_with_config($ty::MAX, &BIGINT_SERIALIZER);
+
+            let too_small = BigInt::from($ty::MIN) - BigInt::from(1);
+            from_value::<$ty>(too_small.into()).unwrap_err();
+
+            let too_large = BigInt::from($ty::MAX) + BigInt::from(1);
+            from_value::<$ty>(too_large.into()).unwrap_err();
+        };
+    }
+
+    #[wasm_bindgen_test]
+    fn bool() {
+        test_value_compatibility!(bool {
+            ValueKind::Boolean => true,
+        });
+    }
+
+    #[wasm_bindgen_test]
+    fn i8() {
+        test_int_boundaries!(i8);
+        test_value_compatibility!(i8 {
+            ValueKind::PosInt => 1,
+            ValueKind::NegInt => -1,
+        });
+    }
+
+    #[wasm_bindgen_test]
+    fn i16() {
+        test_int_boundaries!(i16);
+        test_value_compatibility!(i16 {
+            ValueKind::PosInt => 1,
+            ValueKind::NegInt => -1,
+        });
+    }
+
+    #[wasm_bindgen_test]
+    fn i32() {
+        test_int_boundaries!(i32);
+        test_value_compatibility!(i32 {
+            ValueKind::PosInt => 1,
+            ValueKind::NegInt => -1,
+        });
+    }
+
+    #[wasm_bindgen_test]
+    fn u8() {
+        test_int_boundaries!(u8);
+        test_value_compatibility!(u8 {
+            ValueKind::PosInt => 1,
+        });
+    }
+
+    #[wasm_bindgen_test]
+    fn u16() {
+        test_int_boundaries!(u16);
+        test_value_compatibility!(u16 {
+            ValueKind::PosInt => 1,
+        });
+    }
+
+    #[wasm_bindgen_test]
+    fn u32() {
+        test_int_boundaries!(u32);
+        test_value_compatibility!(u32 {
+            ValueKind::PosInt => 1,
+        });
+    }
+
+    #[wasm_bindgen_test]
+    fn i64() {
+        test_bigint_boundaries!(signed i64);
+        test_value_compatibility!(i64 {
+            ValueKind::PosInt => 1,
+            ValueKind::NegInt => -1,
+            ValueKind::PosBigInt -> 1,
+            ValueKind::NegBigInt -> -1,
+        });
+    }
+
+    #[wasm_bindgen_test]
+    fn u64() {
+        test_bigint_boundaries!(unsigned u64);
+        test_value_compatibility!(u64 {
+            ValueKind::PosInt => 1,
+            ValueKind::PosBigInt -> 1,
+        });
+    }
+
+    #[wasm_bindgen_test]
+    fn f32() {
+        test_value_compatibility!(f32 {
+            ValueKind::PosFloat => 0.5,
+            ValueKind::NegFloat => -0.5,
+            ValueKind::NaN => f32::NAN,
+            ValueKind::PosInfinity => f32::INFINITY,
+            ValueKind::NegInfinity => f32::NEG_INFINITY,
+            ValueKind::PosInt => 1.0,
+            ValueKind::NegInt => -1.0,
+        });
+    }
+
+    #[wasm_bindgen_test]
+    fn f64() {
+        test_value_compatibility!(f64 {
+            ValueKind::PosFloat => 0.5,
+            ValueKind::NegFloat => -0.5,
+            ValueKind::NaN => f64::NAN,
+            ValueKind::PosInfinity => f64::INFINITY,
+            ValueKind::NegInfinity => f64::NEG_INFINITY,
+            ValueKind::PosInt => 1.0,
+            ValueKind::NegInt => -1.0,
+        });
+    }
+
+    #[wasm_bindgen_test]
+    fn string() {
+        let lone_surrogate = JsString::from_char_code(&[0xDC00]);
+        // Lone surrogates currently become a replacement character.
+        assert_eq!(
+            from_value::<String>(lone_surrogate.into()).unwrap(),
+            "\u{FFFD}"
+        );
+    }
 }
 
 #[wasm_bindgen_test]
@@ -390,8 +446,70 @@ fn options() {
     assert_eq!(to_value(&Some(None::<()>)).unwrap(), JsValue::UNDEFINED);
 }
 
+fn assert_json<R>(lhs_value: JsValue, rhs: R)
+where
+    R: Serialize + DeserializeOwned + PartialEq + Debug,
+{
+    if lhs_value.is_undefined() {
+        assert_eq!("null", serde_json::to_string(&rhs).unwrap())
+    } else {
+        assert_eq!(
+            js_sys::JSON::stringify(&lhs_value).unwrap(),
+            serde_json::to_string(&rhs).unwrap(),
+        );
+    }
+
+    let restored_lhs: R = from_value(lhs_value.clone()).unwrap();
+    assert_eq!(restored_lhs, rhs, "from_value from {:?}", lhs_value);
+}
+
+fn test_via_json_with_config<T>(value: T, serializer: &Serializer)
+where
+    T: Serialize + DeserializeOwned + PartialEq + Debug,
+{
+    assert_json(value.serialize(serializer).unwrap(), value);
+}
+
+fn test_via_json<T>(value: T)
+where
+    T: Serialize + DeserializeOwned + PartialEq + Debug,
+{
+    test_via_json_with_config(value, &SERIALIZER);
+}
+
 #[wasm_bindgen_test]
 fn enums() {
+    macro_rules! test_enum {
+        ($(# $attr:tt)* $name:ident) => {{
+            #[derive(Debug, PartialEq, Serialize, Deserialize)]
+            $(# $attr)*
+            enum $name<A, B> where A: Debug + Ord + Eq {
+                Unit,
+                Newtype(A),
+                Tuple(A, B),
+                Struct { a: A, b: B },
+                Map(BTreeMap<A, B>),
+                Seq { seq: Vec<B> } // internal tags cannot be directly embedded in arrays
+            }
+
+            test_via_json($name::Unit::<String, i32>);
+            test_via_json($name::Newtype::<_, i32>("newtype content".to_string()));
+            test_via_json($name::Tuple("tuple content".to_string(), 42));
+            test_via_json($name::Struct {
+                a: "struct content".to_string(),
+                b: 42,
+            });
+            test_via_json_with_config($name::Map::<String, i32>(
+                btreemap!{
+                    "a".to_string() => 12,
+                    "abc".to_string() => -1161,
+                    "b".to_string() => 64,
+                }
+            ), &MAP_OBJECT_SERIALIZER);
+            test_via_json($name::Seq::<i32, i32> { seq: vec![5, 63, 0, -62, 6] });
+        }};
+    }
+
     test_enum! {
         ExternallyTagged
     }
@@ -430,15 +548,15 @@ fn enums() {
             "abc".to_string() => -1161,
             "b".to_string() => 64,
         }),
-        Serializer::new().serialize_maps_as_objects(true),
+        &MAP_OBJECT_SERIALIZER,
     );
 
-    test_via_round_trip(
+    test_via_round_trip_with_config(
         InternallyTagged::Struct {
             a: 10_u64,
             b: -10_i64,
         },
-        Serializer::new().serialize_large_number_types_as_bigints(true),
+        &BIGINT_SERIALIZER,
     );
 
     test_enum! {
@@ -453,7 +571,7 @@ fn enums() {
 
 #[wasm_bindgen_test]
 fn structs() {
-    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
     struct Unit;
 
     test_via_into(Unit, JsValue::UNDEFINED);
@@ -554,7 +672,7 @@ fn maps_objects_string_key() {
         },
     };
 
-    test_via_json_with_config(src, Serializer::new().serialize_maps_as_objects(true));
+    test_via_json_with_config(src, &MAP_OBJECT_SERIALIZER);
 }
 
 #[wasm_bindgen_test]
@@ -571,7 +689,7 @@ fn serialize_json_compatible() {
         },
         b: None,
     };
-    test_via_json_with_config(x, Serializer::json_compatible());
+    test_via_json_with_config(x, &Serializer::json_compatible());
 }
 
 #[wasm_bindgen_test]
@@ -581,8 +699,6 @@ fn maps_objects_object_key() {
         a: A,
         b: B,
     }
-
-    let serializer = Serializer::new().serialize_maps_as_objects(true);
 
     let src = hashmap! {
         Struct {
@@ -601,7 +717,7 @@ fn maps_objects_object_key() {
         },
     };
 
-    let res = src.serialize(&serializer).unwrap_err();
+    let res = src.serialize(&MAP_OBJECT_SERIALIZER).unwrap_err();
     assert_eq!(
         res.to_string(),
         Error::custom("Map key is not a string and cannot be an object key").to_string()
@@ -617,9 +733,10 @@ fn serde_default_fields() {
         #[serde(default)]
         missing: bool,
         opt_field: Option<String>,
+        unit_field: (),
     }
 
-    let json = r#"{"data": "testing"}"#;
+    let json = r#"{"data": "testing", "unit_field": null}"#;
     let obj = js_sys::JSON::parse(json).unwrap();
 
     // Check that it parses successfully despite the missing field.

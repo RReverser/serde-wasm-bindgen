@@ -22,6 +22,18 @@ serde_bytes = "0.11.1"
 serde_json = "1.0.39"
 maplit = "1.0.2"
 
+[dev-dependencies.proptest]
+version = "1.0"
+# The default feature set includes things like process forking which are not
+# supported in Web Assembly.
+default-features = false
+# Enable using the `std` crate.
+features = ["std"]
+
+[dev-dependencies.getrandom]
+version = "0.2"
+features = ["js"]
+
 [workspace]
 members = ["benchmarks"]
 
@@ -29,3 +41,6 @@ members = ["benchmarks"]
 lto = true
 codegen-units = 1
 debug = true
+
+[patch.crates-io]
+proptest = { git = "https://github.com/RReverser/proptest", branch = "fix-wasm" }

@@ -33,7 +33,7 @@ struct MapAccess {
 }
 
 impl MapAccess {
-    fn new(iter: js_sys::IntoIter) -> Self {
+    const fn new(iter: js_sys::IntoIter) -> Self {
         Self {
             iter,
             next_value: None,

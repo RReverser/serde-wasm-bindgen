@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
+#![warn(clippy::missing_const_for_fn)]
 
 use js_sys::JsString;
 use wasm_bindgen::prelude::*;
