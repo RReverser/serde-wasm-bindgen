@@ -156,7 +156,7 @@ fn convert_pair(pair: JsValue) -> (Deserializer, Deserializer) {
 fn bigint_to_i64(bigint: &BigInt) -> Option<i64> {
     let converted_number = bindings::bigint_to_i64(bigint);
     // Do a round trip check in order to make sure that no information was lost
-    if &bindings::bigint_from_i64(converted_number) == bigint {
+    if *bigint == converted_number {
         Some(converted_number)
     } else {
         None
@@ -166,7 +166,7 @@ fn bigint_to_i64(bigint: &BigInt) -> Option<i64> {
 fn bigint_to_u64(bigint: &BigInt) -> Option<u64> {
     let converted_number = bindings::bigint_to_u64(bigint);
     // Do a round trip check in order to make sure that no information was lost
-    if &bindings::bigint_from_u64(converted_number) == bigint {
+    if *bigint == converted_number {
         Some(converted_number)
     } else {
         None

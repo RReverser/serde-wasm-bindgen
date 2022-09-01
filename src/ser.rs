@@ -1,4 +1,3 @@
-use crate::bindings;
 use js_sys::{Array, JsString, Map, Object, Uint8Array};
 use serde::ser::{self, Error as _, Serialize};
 use wasm_bindgen::prelude::*;
@@ -305,7 +304,7 @@ impl<'s> ser::Serializer for &'s Serializer {
 
     fn serialize_i64(self, v: i64) -> Result {
         if self.serialize_large_number_types_as_bigints {
-            return Ok(bindings::bigint_from_i64(v).into());
+            return Ok(v.into());
         }
 
         // Note: don't try to "simplify" by using `.abs()` as it can overflow,
@@ -325,7 +324,7 @@ impl<'s> ser::Serializer for &'s Serializer {
 
     fn serialize_u64(self, v: u64) -> Result {
         if self.serialize_large_number_types_as_bigints {
-            return Ok(bindings::bigint_from_u64(v).into());
+            return Ok(v.into());
         }
 
         const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
