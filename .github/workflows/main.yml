@@ -13,8 +13,6 @@ jobs:
         uses: hecrj/setup-rust-action@v1
         with:
           components: clippy,rustfmt
-      - name: Update Chrome
-        uses: browser-actions/setup-chrome@latest
       - name: Install wasm-pack
         uses: jetli/wasm-pack-action@v0.3.0
       - name: Run tests in Node.js
