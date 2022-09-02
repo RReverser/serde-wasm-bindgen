@@ -7,12 +7,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
       - name: Install Rust
         uses: hecrj/setup-rust-action@v1
         with:
           components: clippy,rustfmt
-      - uses: jetli/wasm-pack-action@v0.3.0
+      - name: Update Chrome
+        uses: browser-actions/setup-chrome@latest
+      - name: Install wasm-pack
+        uses: jetli/wasm-pack-action@v0.3.0
       - name: Run tests in Chrome
         run: wasm-pack test --headless --chrome
       - name: Run tests in Firefox
