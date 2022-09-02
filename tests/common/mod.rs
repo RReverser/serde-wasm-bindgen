@@ -225,13 +225,13 @@ mod proptests {
         #[wasm_bindgen_test]
         fn isize(value: isize) {
             test_via_into(value, value as f64);
-            test_primitive_with_config(value, &BIGINT_SERIALIZER);
+            test_via_into_with_config(value, value as i64, &BIGINT_SERIALIZER);
         }
 
         #[wasm_bindgen_test]
-        fn usize(value: isize) {
+        fn usize(value: usize) {
             test_via_into(value, value as f64);
-            test_primitive_with_config(value, &BIGINT_SERIALIZER);
+            test_via_into_with_config(value, value as u64, &BIGINT_SERIALIZER);
         }
 
         #[wasm_bindgen_test]
@@ -263,14 +263,14 @@ mod compat {
     }
 
     macro_rules! test_bigint_boundaries {
-        ($ty:ident) => {
-            test_primitive_with_config($ty::MIN, &BIGINT_SERIALIZER);
-            test_primitive_with_config($ty::MAX, &BIGINT_SERIALIZER);
+        ($ty:ident $(as $as:ident)?) => {
+            test_via_into_with_config($ty::MIN, $ty::MIN $(as $as)?, &BIGINT_SERIALIZER);
+            test_via_into_with_config($ty::MAX, $ty::MAX $(as $as)?, &BIGINT_SERIALIZER);
 
-            let too_small = BigInt::from($ty::MIN) - BigInt::from(1);
+            let too_small = BigInt::from($ty::MIN $(as $as)?) - BigInt::from(1);
             from_value::<$ty>(too_small.into()).unwrap_err();
 
-            let too_large = BigInt::from($ty::MAX) + BigInt::from(1);
+            let too_large = BigInt::from($ty::MAX $(as $as)?) + BigInt::from(1);
             from_value::<$ty>(too_large.into()).unwrap_err();
         };
     }
@@ -373,7 +373,7 @@ mod compat {
 
     #[wasm_bindgen_test]
     fn isize() {
-        test_bigint_boundaries!(isize);
+        test_bigint_boundaries!(isize as i64);
         test_value_compatibility!(isize {
             ValueKind::PosInt => 1,
             ValueKind::NegInt => -1,
@@ -384,7 +384,7 @@ mod compat {
 
     #[wasm_bindgen_test]
     fn usize() {
-        test_bigint_boundaries!(usize);
+        test_bigint_boundaries!(usize as u64);
         test_value_compatibility!(usize {
             ValueKind::PosInt => 1,
             ValueKind::PosBigInt -> 1,
