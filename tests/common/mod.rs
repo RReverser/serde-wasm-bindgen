@@ -26,7 +26,7 @@ where
     let round_trip = from_value(serialized.clone()).unwrap();
     assert_eq!(
         value, round_trip,
-        "{:?} != from_value({:?})",
+        "{:?} == from_value({:?})",
         value, serialized
     );
     serialized
@@ -41,7 +41,7 @@ where
     assert_eq!(
         serialized,
         rhs.clone().into(),
-        "to_value({:?}) != JsValue::from({:?})",
+        "to_value({:?}) == JsValue::from({:?})",
         lhs,
         rhs
     );
@@ -121,7 +121,7 @@ macro_rules! test_value_compatibility {
         }
     };
 
-    (@compare $ty:ty, NaN => $rust_value:expr, $js_value:expr) => {{
+    (@compare $ty:ty, NaN => $rust_value:ident, $js_value:ident) => {{
         let mut rust_value: $ty = $rust_value;
         assert!(rust_value.is_nan(), "{:?} is not NaN", rust_value);
 
@@ -132,13 +132,13 @@ macro_rules! test_value_compatibility {
         assert!(rust_value.is_nan(), "{:?} is not NaN", rust_value);
     }};
 
-    (@compare $ty:ty, $kind:ident -> $rust_value:expr, $js_value:expr) => {{
-        assert_ne!(to_value(&$rust_value).unwrap(), $js_value, "to_value from {:?}", $rust_value);
+    (@compare $ty:ty, $kind:ident -> $rust_value:ident, $js_value:ident) => {{
+        assert_ne!(to_value(&$rust_value).ok().as_ref(), Some(&$js_value), "to_value({:?}) != Ok({:?})", $rust_value, $js_value);
         let rust_value: $ty = from_value($js_value.clone()).unwrap();
         assert_eq!(rust_value, $rust_value, "from_value from {:?}", $js_value);
     }};
 
-    (@compare $ty:ty, $kind:ident => $rust_value:expr, $js_value:expr) => (
+    (@compare $ty:ty, $kind:ident => $rust_value:ident, $js_value:ident) => (
         test_via_into::<$ty, JsValue>($rust_value, $js_value)
     );
 }
@@ -232,6 +232,16 @@ mod proptests {
         fn usize(value: usize) {
             test_via_into(value, value as f64);
             test_via_into_with_config(value, value as u64, &BIGINT_SERIALIZER);
+        }
+
+        #[wasm_bindgen_test]
+        fn i128(value: i128) {
+            test_primitive_with_config(value, &BIGINT_SERIALIZER);
+        }
+
+        #[wasm_bindgen_test]
+        fn u128(value: u128) {
+            test_primitive_with_config(value, &BIGINT_SERIALIZER);
         }
 
         #[wasm_bindgen_test]
@@ -367,6 +377,23 @@ mod compat {
         test_safe_int_boundaries!(unsigned u64);
         test_value_compatibility!(u64 {
             ValueKind::PosInt => 1,
+            ValueKind::PosBigInt -> 1,
+        });
+    }
+
+    #[wasm_bindgen_test]
+    fn i128() {
+        test_bigint_boundaries!(i128);
+        test_value_compatibility!(i128 {
+            ValueKind::PosBigInt -> 1,
+            ValueKind::NegBigInt -> -1,
+        });
+    }
+
+    #[wasm_bindgen_test]
+    fn u128() {
+        test_bigint_boundaries!(u128);
+        test_value_compatibility!(u128 {
             ValueKind::PosBigInt -> 1,
         });
     }

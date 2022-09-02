@@ -1,8 +1,7 @@
 use crate::bindings;
 use js_sys::{Array, ArrayBuffer, BigInt, JsString, Number, Object, Symbol, Uint8Array};
 use serde::de::value::{MapDeserializer, SeqDeserializer};
-use serde::de::IntoDeserializer;
-use serde::{de, serde_if_integer128};
+use serde::de::{self, IntoDeserializer};
 use wasm_bindgen::{JsCast, JsValue, UnwrapThrowExt};
 
 use super::{static_str_to_js, Error, ObjectExt, Result};
@@ -378,15 +377,6 @@ impl<'de> de::Deserializer<'de> for Deserializer {
         self.deserialize_from_js_number_signed(visitor)
     }
 
-    // TODO: Add i128 deserializer rather than forwarding to i64
-    serde_if_integer128! {
-        fn deserialize_i128<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-            self.deserialize_i64(visitor)
-        }
-    }
-
-    // Same as above, but for `i64`.
-
     fn deserialize_u8<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         self.deserialize_from_js_number_unsigned(visitor)
     }
@@ -397,13 +387,6 @@ impl<'de> de::Deserializer<'de> for Deserializer {
 
     fn deserialize_u32<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         self.deserialize_from_js_number_unsigned(visitor)
-    }
-
-    // TODO: Add u128 deserializer rather than forwarding to u64
-    serde_if_integer128! {
-        fn deserialize_u128<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-            self.deserialize_u64(visitor)
-        }
     }
 
     fn deserialize_i64<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
@@ -429,6 +412,36 @@ impl<'de> de::Deserializer<'de> for Deserializer {
             }
         } else {
             self.deserialize_from_js_number_unsigned(visitor)
+        }
+    }
+
+    fn deserialize_i128<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        if let Some(bigint) = self.value.dyn_ref::<BigInt>() {
+            let hi = match bigint_to_i64(&(bigint >> BigInt::from(64))) {
+                Some(v) => v,
+                None => return Err(de::Error::custom(
+                    "Couldn't deserialize i128 from a BigInt outside i128::MIN..i128::MAX bounds",
+                )),
+            };
+            let lo = bindings::bigint_to_u64(bigint);
+            visitor.visit_i128(i128::from(hi) << 64 | i128::from(lo))
+        } else {
+            self.invalid_type(visitor)
+        }
+    }
+
+    fn deserialize_u128<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        if let Some(bigint) = self.value.dyn_ref::<BigInt>() {
+            let hi = match bigint_to_u64(&(bigint >> BigInt::from(64))) {
+                Some(v) => v,
+                None => return Err(de::Error::custom(
+                    "Couldn't deserialize u128 from a BigInt outside u128::MIN..u128::MAX bounds",
+                )),
+            };
+            let lo = bindings::bigint_to_u64(bigint);
+            visitor.visit_u128(u128::from(hi) << 64 | u128::from(lo))
+        } else {
+            self.invalid_type(visitor)
         }
     }
 
