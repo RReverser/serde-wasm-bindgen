@@ -9,7 +9,7 @@ let suites = {
 };
 
 for (let input of ['canada', 'citm_catalog', 'twitter']) {
-	const json = require(`./${input}.json`);
+	const json = require(`./data/${input}.json`);
 
 	for (const lib of ['serde_json', 'serde_wasm_bindgen']) {
 		const parse = benches[`parse_${input}_with_${lib}`];

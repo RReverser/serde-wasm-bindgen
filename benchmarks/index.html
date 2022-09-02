@@ -16,7 +16,7 @@
 	})();
 
 	const inputs = ['canada', 'citm_catalog', 'twitter'].map(async input => {
-		const res = await fetch(`${input}.json`);
+		const res = await fetch(`data/${input}.json`);
 		return {
 			input,
 			json: await res.json()
