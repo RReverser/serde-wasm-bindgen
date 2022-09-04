@@ -44,3 +44,5 @@ debug = true
 
 [patch.crates-io]
 proptest = { git = "https://github.com/RReverser/proptest", branch = "fix-wasm" }
+wasm-bindgen = { git = "https://github.com/rustwasm/wasm-bindgen", rev = "699e78811e21b52b4642b7b78fc649d1809adad1" }
+js-sys = { git = "https://github.com/rustwasm/wasm-bindgen", rev = "699e78811e21b52b4642b7b78fc649d1809adad1" }

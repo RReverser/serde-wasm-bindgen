@@ -42,6 +42,7 @@ pub fn parse_canada_with_serde_wasm_bindgen(input: JsValue) -> Canada {
 
 #[cfg(feature = "serde-json")]
 #[wasm_bindgen]
+#[allow(deprecated)]
 pub fn parse_canada_with_serde_json(input: JsValue) -> Canada {
     input.into_serde().unwrap()
 }
@@ -54,6 +55,7 @@ pub fn serialize_canada_with_serde_wasm_bindgen(input: &Canada) -> JsValue {
 
 #[cfg(feature = "serde-json")]
 #[wasm_bindgen]
+#[allow(deprecated)]
 pub fn serialize_canada_with_serde_json(input: &Canada) -> JsValue {
     JsValue::from_serde(input).unwrap()
 }
@@ -66,6 +68,7 @@ pub fn parse_citm_catalog_with_serde_wasm_bindgen(input: JsValue) -> CitmCatalog
 
 #[cfg(feature = "serde-json")]
 #[wasm_bindgen]
+#[allow(deprecated)]
 pub fn parse_citm_catalog_with_serde_json(input: JsValue) -> CitmCatalog {
     input.into_serde().unwrap()
 }
@@ -78,6 +81,7 @@ pub fn serialize_citm_catalog_with_serde_wasm_bindgen(input: &CitmCatalog) -> Js
 
 #[cfg(feature = "serde-json")]
 #[wasm_bindgen]
+#[allow(deprecated)]
 pub fn serialize_citm_catalog_with_serde_json(input: &CitmCatalog) -> JsValue {
     JsValue::from_serde(input).unwrap()
 }
@@ -90,6 +94,7 @@ pub fn parse_twitter_with_serde_wasm_bindgen(input: JsValue) -> Twitter {
 
 #[cfg(feature = "serde-json")]
 #[wasm_bindgen]
+#[allow(deprecated)]
 pub fn parse_twitter_with_serde_json(input: JsValue) -> Twitter {
     input.into_serde().unwrap()
 }
@@ -102,6 +107,7 @@ pub fn serialize_twitter_with_serde_wasm_bindgen(input: &Twitter) -> JsValue {
 
 #[cfg(feature = "serde-json")]
 #[wasm_bindgen]
+#[allow(deprecated)]
 pub fn serialize_twitter_with_serde_json(input: &Twitter) -> JsValue {
     JsValue::from_serde(input).unwrap()
 }

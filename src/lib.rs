@@ -5,7 +5,6 @@
 use js_sys::JsString;
 use wasm_bindgen::prelude::*;
 
-mod bindings;
 mod de;
 mod error;
 mod ser;
