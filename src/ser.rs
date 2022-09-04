@@ -1,4 +1,4 @@
-use js_sys::{Array, JsString, Map, Object, Uint8Array};
+use js_sys::{Array, JsString, Map, Number, Object, Uint8Array};
 use serde::ser::{self, Error as _, Serialize};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -309,8 +309,8 @@ impl<'s> ser::Serializer for &'s Serializer {
 
         // Note: don't try to "simplify" by using `.abs()` as it can overflow,
         // but range check can't.
-        const MIN_SAFE_INTEGER: i64 = -9_007_199_254_740_991;
-        const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
+        const MIN_SAFE_INTEGER: i64 = Number::MIN_SAFE_INTEGER as i64;
+        const MAX_SAFE_INTEGER: i64 = Number::MAX_SAFE_INTEGER as i64;
 
         if (MIN_SAFE_INTEGER..=MAX_SAFE_INTEGER).contains(&v) {
             self.serialize_f64(v as _)
@@ -327,9 +327,7 @@ impl<'s> ser::Serializer for &'s Serializer {
             return Ok(v.into());
         }
 
-        const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
-
-        if v <= MAX_SAFE_INTEGER {
+        if v <= Number::MAX_SAFE_INTEGER as u64 {
             self.serialize_f64(v as _)
         } else {
             Err(Error::custom(format_args!(

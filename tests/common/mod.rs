@@ -213,12 +213,12 @@ mod proptests {
         }
 
         #[wasm_bindgen_test]
-        fn i64_numbers(value in -9_007_199_254_740_991..=9_007_199_254_740_991_i64) {
+        fn i64_numbers(value in Number::MIN_SAFE_INTEGER as i64..=Number::MAX_SAFE_INTEGER as i64) {
             test_via_into(value, value as f64);
         }
 
         #[wasm_bindgen_test]
-        fn u64_numbers(value in 0..=9_007_199_254_740_991_u64) {
+        fn u64_numbers(value in 0..=Number::MAX_SAFE_INTEGER as u64) {
             test_via_into(value, value as f64);
         }
 
@@ -287,17 +287,17 @@ mod compat {
 
     macro_rules! test_safe_int_boundaries {
         (signed $ty:ident) => {
-            test_via_into::<$ty, f64>(-9_007_199_254_740_991, -9_007_199_254_740_991.0);
-            from_value::<$ty>(JsValue::from(-9_007_199_254_740_992.0)).unwrap_err();
-            test_primitive_with_config::<$ty>(-9_007_199_254_740_992, &BIGINT_SERIALIZER);
+            test_via_into(Number::MIN_SAFE_INTEGER as $ty, Number::MIN_SAFE_INTEGER);
+            from_value::<$ty>(JsValue::from(Number::MIN_SAFE_INTEGER - 1.)).unwrap_err();
+            test_primitive_with_config((Number::MIN_SAFE_INTEGER - 1.) as $ty, &BIGINT_SERIALIZER);
 
             test_safe_int_boundaries!(unsigned $ty);
         };
 
         (unsigned $ty:ident) => {
-            test_via_into::<$ty, f64>(9_007_199_254_740_991, 9_007_199_254_740_991.0);
-            from_value::<$ty>(9_007_199_254_740_992.0.into()).unwrap_err();
-            test_primitive_with_config::<$ty>(9_007_199_254_740_992, &BIGINT_SERIALIZER);
+            test_via_into(Number::MAX_SAFE_INTEGER as $ty, Number::MAX_SAFE_INTEGER);
+            from_value::<$ty>(JsValue::from(Number::MAX_SAFE_INTEGER + 1.)).unwrap_err();
+            test_primitive_with_config((Number::MAX_SAFE_INTEGER + 1.) as $ty, &BIGINT_SERIALIZER);
         };
     }
 
