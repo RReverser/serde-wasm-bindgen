@@ -21,7 +21,7 @@ impl std::error::Error for Error {}
 impl Error {
     /// Creates a JavaScript `Error` with a given message.
     pub fn new<T: std::fmt::Display>(msg: T) -> Self {
-        Error(js_sys::Error::new(&msg.to_string()).into())
+        Error(JsError::new(&msg.to_string()).into())
     }
 }
 
