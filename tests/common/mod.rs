@@ -236,12 +236,12 @@ mod proptests {
 
         #[wasm_bindgen_test]
         fn i128(value: i128) {
-            test_primitive_with_config(value, &BIGINT_SERIALIZER);
+            test_primitive(value);
         }
 
         #[wasm_bindgen_test]
         fn u128(value: u128) {
-            test_primitive_with_config(value, &BIGINT_SERIALIZER);
+            test_primitive(value);
         }
 
         #[wasm_bindgen_test]
@@ -385,8 +385,8 @@ mod compat {
     fn i128() {
         test_bigint_boundaries!(i128);
         test_value_compatibility!(i128 {
-            ValueKind::PosBigInt -> 1,
-            ValueKind::NegBigInt -> -1,
+            ValueKind::PosBigInt => 1,
+            ValueKind::NegBigInt => -1,
         });
     }
 
@@ -394,7 +394,7 @@ mod compat {
     fn u128() {
         test_bigint_boundaries!(u128);
         test_value_compatibility!(u128 {
-            ValueKind::PosBigInt -> 1,
+            ValueKind::PosBigInt => 1,
         });
     }
 

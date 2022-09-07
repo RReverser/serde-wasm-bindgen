@@ -338,19 +338,11 @@ impl<'s> ser::Serializer for &'s Serializer {
     }
 
     fn serialize_i128(self, v: i128) -> Result {
-        if self.serialize_large_number_types_as_bigints {
-            Ok(JsValue::from(v))
-        } else {
-            Err(Error::custom("To enable i128 serialization please use the serialize_large_number_types_as_bigints option"))
-        }
+        Ok(JsValue::from(v))
     }
 
     fn serialize_u128(self, v: u128) -> Result {
-        if self.serialize_large_number_types_as_bigints {
-            Ok(JsValue::from(v))
-        } else {
-            Err(Error::custom("To enable u128 serialization please use the serialize_large_number_types_as_bigints option"))
-        }
+        Ok(JsValue::from(v))
     }
 
     fn serialize_char(self, v: char) -> Result {
