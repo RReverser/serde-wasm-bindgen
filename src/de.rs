@@ -164,7 +164,7 @@ impl Deserializer {
     }
 
     fn is_nullish(&self) -> bool {
-        self.value.is_null() || self.value.is_undefined()
+        self.value.loose_eq(&JsValue::NULL)
     }
 
     fn as_bytes(&self) -> Option<Vec<u8>> {
