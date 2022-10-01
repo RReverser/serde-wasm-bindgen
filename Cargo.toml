@@ -13,7 +13,7 @@ keywords = ["serde", "serialization", "javascript", "wasm", "webassembly"]
 [dependencies]
 serde = "^1.0"
 js-sys = "^0.3"
-wasm-bindgen = "0.2.43"
+wasm-bindgen = "0.2.83"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.24"
@@ -44,5 +44,3 @@ debug = true
 
 [patch.crates-io]
 proptest = { git = "https://github.com/RReverser/proptest", branch = "fix-wasm" }
-wasm-bindgen = { git = "https://github.com/rustwasm/wasm-bindgen", rev = "699e78811e21b52b4642b7b78fc649d1809adad1" }
-js-sys = { git = "https://github.com/rustwasm/wasm-bindgen", rev = "699e78811e21b52b4642b7b78fc649d1809adad1" }
