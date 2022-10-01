@@ -225,7 +225,7 @@ dependencies = [
 
 [[package]]
 name = "serde-wasm-bindgen"
-version = "0.4.4-alpha.0"
+version = "0.4.4"
 dependencies = [
  "getrandom",
  "js-sys",
