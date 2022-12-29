@@ -2,6 +2,7 @@
   "name": "@serde-wasm-bindgen/benches",
   "private": true,
   "dependencies": {
+    "@msgpack/msgpack": "^2.8.0",
     "benchmark": "^2.1.4"
   },
   "scripts": {

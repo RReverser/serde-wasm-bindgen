@@ -11,7 +11,7 @@ let suites = {
 for (let input of ['canada', 'citm_catalog', 'twitter']) {
 	const json = require(`./data/${input}.json`);
 
-	for (const lib of ['serde_json', 'serde_wasm_bindgen']) {
+	for (const lib of ['serde_json', 'serde_wasm_bindgen', 'msgpack']) {
 		const parse = benches[`parse_${input}_with_${lib}`];
 		suites.parse.add(`${input} x ${lib}`, () => parse(json).free());
 

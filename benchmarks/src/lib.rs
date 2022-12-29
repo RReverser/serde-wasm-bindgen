@@ -34,6 +34,28 @@ fn serde_wasm_bindgen_to_value(
     value.serialize(&serializer)
 }
 
+#[cfg(feature = "msgpack")]
+mod msgpack_js {
+    use super::*;
+    use serde::de::DeserializeOwned;
+
+    #[wasm_bindgen(module = "@msgpack/msgpack")]
+    extern "C" {
+        fn encode(input: &JsValue) -> Vec<u8>;
+        fn decode(input: &[u8]) -> JsValue;
+    }
+
+    pub fn parse<T: DeserializeOwned>(input: JsValue) -> Result<T, rmp_serde::decode::Error> {
+        let input = encode(&input);
+        rmp_serde::from_slice(&input)
+    }
+
+    pub fn serialize<T: Serialize>(input: &T) -> Result<JsValue, rmp_serde::encode::Error> {
+        let input = rmp_serde::to_vec(input)?;
+        Ok(decode(&input))
+    }
+}
+
 #[cfg(feature = "serde-wasm-bindgen")]
 #[wasm_bindgen]
 pub fn parse_canada_with_serde_wasm_bindgen(input: JsValue) -> Canada {
@@ -45,6 +67,12 @@ pub fn parse_canada_with_serde_wasm_bindgen(input: JsValue) -> Canada {
 #[allow(deprecated)]
 pub fn parse_canada_with_serde_json(input: JsValue) -> Canada {
     input.into_serde().unwrap()
+}
+
+#[cfg(feature = "msgpack")]
+#[wasm_bindgen]
+pub fn parse_canada_with_msgpack(input: JsValue) -> Canada {
+    msgpack_js::parse(input).unwrap()
 }
 
 #[cfg(feature = "serde-wasm-bindgen")]
@@ -60,6 +88,12 @@ pub fn serialize_canada_with_serde_json(input: &Canada) -> JsValue {
     JsValue::from_serde(input).unwrap()
 }
 
+#[cfg(feature = "msgpack")]
+#[wasm_bindgen]
+pub fn serialize_canada_with_msgpack(input: &Canada) -> JsValue {
+    msgpack_js::serialize(input).unwrap()
+}
+
 #[cfg(feature = "serde-wasm-bindgen")]
 #[wasm_bindgen]
 pub fn parse_citm_catalog_with_serde_wasm_bindgen(input: JsValue) -> CitmCatalog {
@@ -71,6 +105,12 @@ pub fn parse_citm_catalog_with_serde_wasm_bindgen(input: JsValue) -> CitmCatalog
 #[allow(deprecated)]
 pub fn parse_citm_catalog_with_serde_json(input: JsValue) -> CitmCatalog {
     input.into_serde().unwrap()
+}
+
+#[cfg(feature = "msgpack")]
+#[wasm_bindgen]
+pub fn parse_citm_catalog_with_msgpack(input: JsValue) -> CitmCatalog {
+    msgpack_js::parse(input).unwrap()
 }
 
 #[cfg(feature = "serde-wasm-bindgen")]
@@ -86,6 +126,12 @@ pub fn serialize_citm_catalog_with_serde_json(input: &CitmCatalog) -> JsValue {
     JsValue::from_serde(input).unwrap()
 }
 
+#[cfg(feature = "msgpack")]
+#[wasm_bindgen]
+pub fn serialize_citm_catalog_with_msgpack(input: &CitmCatalog) -> JsValue {
+    msgpack_js::serialize(input).unwrap()
+}
+
 #[cfg(feature = "serde-wasm-bindgen")]
 #[wasm_bindgen]
 pub fn parse_twitter_with_serde_wasm_bindgen(input: JsValue) -> Twitter {
@@ -99,6 +145,12 @@ pub fn parse_twitter_with_serde_json(input: JsValue) -> Twitter {
     input.into_serde().unwrap()
 }
 
+#[cfg(feature = "msgpack")]
+#[wasm_bindgen]
+pub fn parse_twitter_with_msgpack(input: JsValue) -> Twitter {
+    msgpack_js::parse(input).unwrap()
+}
+
 #[cfg(feature = "serde-wasm-bindgen")]
 #[wasm_bindgen]
 pub fn serialize_twitter_with_serde_wasm_bindgen(input: &Twitter) -> JsValue {
@@ -110,4 +162,10 @@ pub fn serialize_twitter_with_serde_wasm_bindgen(input: &Twitter) -> JsValue {
 #[allow(deprecated)]
 pub fn serialize_twitter_with_serde_json(input: &Twitter) -> JsValue {
     JsValue::from_serde(input).unwrap()
+}
+
+#[cfg(feature = "msgpack")]
+#[wasm_bindgen]
+pub fn serialize_twitter_with_msgpack(input: &Twitter) -> JsValue {
+    msgpack_js::serialize(input).unwrap()
 }
