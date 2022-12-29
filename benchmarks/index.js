@@ -13,13 +13,17 @@ for (let input of ['canada', 'citm_catalog', 'twitter']) {
 
 	for (const lib of ['serde_json', 'serde_wasm_bindgen', 'msgpack']) {
 		const parse = benches[`parse_${input}_with_${lib}`];
-		suites.parse.add(`${input} x ${lib}`, () => parse(json).free());
+		if (parse) {
+			suites.parse.add(`${input} x ${lib}`, () => parse(json).free());
+		}
 
 		const serialize = benches[`serialize_${input}_with_${lib}`];
-		let parsed = parse(json);
-		suites.serialize.add(`${input} x ${lib}`, () => serialize(parsed), {
-			onComplete: () => parsed.free()
-		});
+		if (serialize) {
+			let parsed = parse(json);
+			suites.serialize.add(`${input} x ${lib}`, () => serialize(parsed), {
+				onComplete: () => parsed.free()
+			});
+		}
 	}
 }
 
