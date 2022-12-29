@@ -16,7 +16,7 @@ wasm-bindgen = { version = "^0.2" }
 crate-type = ["cdylib", "rlib"]
 
 [features]
-default = ["serde-json", "serde-wasm-bindgen", "msgpack"]
+default = ["serde-json", "serde-wasm-bindgen"]
 serde-json = ["wasm-bindgen/serde-serialize"]
 msgpack = ["rmp-serde"]
 
