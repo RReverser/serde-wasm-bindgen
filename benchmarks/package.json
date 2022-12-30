@@ -3,10 +3,17 @@
   "private": true,
   "dependencies": {
     "@msgpack/msgpack": "^2.8.0",
-    "benchmark": "^2.1.4"
+    "benchmark": "^2.1.4",
+    "brotli-size": "^4.0.0",
+    "cross-env": "^7.0.3",
+    "pretty-bytes": "^6.0.0"
   },
   "scripts": {
-    "pretest": "wasm-pack build -t nodejs --profiling",
-    "test": "node index.js"
+    "build:swb": "wasm-pack build -t nodejs --out-dir pkg/serde-wasm-bindgen -- --features serde-wasm-bindgen",
+    "build:swb-reftypes": "cross-env RUSTFLAGS=\"-C target-feature=+reference-types\" WASM_BINDGEN_EXTERNREF=1 wasm-pack build -t nodejs --out-dir pkg/serde-wasm-bindgen-reftypes -- --features serde-wasm-bindgen",
+    "build:json": "wasm-pack build -t nodejs --out-dir pkg/serde-json -- --features serde-json",
+    "build:msgpack": "wasm-pack build -t nodejs --out-dir pkg/msgpack -- --features msgpack",
+    "build": "npm run build:swb && npm run build:swb-reftypes && npm run build:json",
+    "test": "node index.mjs"
   }
 }
