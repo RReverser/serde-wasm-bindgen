@@ -1,97 +1,40 @@
-<select id="suite">
-	<option value="parse">Parse</option>
-	<option value="serialize">Serialize</option>
-</select>
-<input type="button" id="run" disabled value="Run" />
-<input type="button" id="singleRun" disabled value="Single run" />
-<pre id="output"></pre>
 <script type="module">
-	import 'https://unpkg.com/lodash';
-	import 'https://unpkg.com/benchmark';
+  let currentGroups = [document.body];
 
-	const benches = (async () => {
-		const benches = await import('./pkg/serde_wasm_bindgen_benches.js');
-		await benches.default();
-		return benches;
-	})();
+  let origGroup = console.group;
+  console.group = name => {
+    origGroup(name);
+    let group = document.createElement('fieldset');
+    let groupSummary = document.createElement('legend');
+    groupSummary.textContent = name;
+    group.appendChild(groupSummary);
+    currentGroups[0].appendChild(group);
+    currentGroups.unshift(group);
+  };
 
-	const inputs = ['canada', 'citm_catalog', 'twitter'].map(async input => {
-		const res = await fetch(`data/${input}.json`);
-		return {
-			input,
-			json: await res.json()
-		};
-	});
+  let origGroupEnd = console.groupEnd;
+  console.groupEnd = () => {
+    origGroupEnd();
+    currentGroups.shift();
+  };
 
-	Promise.all([
-		benches,
-		Promise.all(inputs)
-	]).then(([benches, inputs]) => {
-		let suites = {};
+  let origLog = console.log;
+  console.log = (...args) => {
+    origLog(...args);
+	let div = document.createElement('div');
+	div.textContent = args.join(' ');
+    currentGroups[0].append(div);
+  };
 
-		function addSuite(name) {
-			suites[name] = new Benchmark.Suite(name, {
-				onError: event => output.textContent = target.error,
-				onCycle: event => output.textContent += event.target.toString() + '\n',
-				onComplete: endRun,
-			});
-		}
-
-		function addFunc(suite, name, func) {
-			Object.defineProperty(func, 'name', {
-				value: name
-			});
-			suite.add(name, func);
-		}
-
-		addSuite('parse');
-		addSuite('serialize');
-
-		for (let { input, json } of inputs) {
-			for (const lib of ['serde_json', 'serde_wasm_bindgen']) {
-				const parse = benches[`parse_${input}_with_${lib}`];
-				addFunc(suites.parse, `${input} x ${lib}`, () => parse(json).free());
-
-				const serialize = benches[`serialize_${input}_with_${lib}`];
-				let parsed = parse(json);
-				addFunc(suites.serialize, `${input} x ${lib}`, () => serialize(parsed), {
-					onComplete: () => parsed.free()
-				});
-			}
-		}
-
-		function startRun() {
-			let suite = suites[document.getElementById('suite').value];
-			output.textContent = `Running '${suite.name}' suite...\n`;
-			run.disabled = true;
-			singleRun.disabled = true;
-			return suite;
-		}
-
-		function endRun() {
-			output.textContent += 'Done!';
-			run.disabled = false;
-			singleRun.disabled = false;
-		}
-
-		run.onclick = () => {
-			startRun().run({ async: true });
-		};
-
-		singleRun.onclick = () => {
-			startRun().forEach(bench => {
-				let start = performance.now();
-				bench.fn();
-				let passed = (performance.now() - start);
-				output.textContent += `${bench.name} x ${(1000 / passed).toFixed(2)} ops/sec\n`;
-			});
-			endRun();
-		};
-
-		run.disabled = false;
-		singleRun.disabled = false;
-	}).catch(err => {
-		console.error(err);
-		output.textContent = err;
-	});
+  let origError = console.error;
+  console.error = (...args) => {
+    origError(...args);
+	let div = document.createElement('div');
+	div.textContent = args.join(' ');
+	div.style.color = 'red';
+    currentGroups[0].append(div);
+  };
 </script>
+<script src="node_modules/lodash/lodash.js"></script>
+<script src="node_modules/benchmark/benchmark.js"></script>
+<script src="index.mjs" type="module"></script>
