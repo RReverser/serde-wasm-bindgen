@@ -5,9 +5,14 @@ let suiteOps = {
   serialize: {}
 };
 
-const libs = await Promise.all(
-  ['serde-wasm-bindgen', 'serde-json', 'serde-wasm-bindgen-reftypes']
-    .map(async dir => {
+const libs = (
+  await Promise.all(
+    [
+      'serde-wasm-bindgen',
+      'serde-json',
+      'serde-wasm-bindgen-reftypes',
+      'msgpack'
+    ].map(async dir => {
       try {
         const impl = await import(`./pkg/${dir}/serde_wasm_bindgen_benches.js`);
         await impl.default(); // Init Wasm
@@ -17,11 +22,10 @@ const libs = await Promise.all(
         return null;
       }
     })
-    .filter(Boolean)
-);
+  )
+).filter(Boolean);
 
-let readFile,
-  filter;
+let readFile, filter;
 
 const isNode = typeof process !== 'undefined';
 

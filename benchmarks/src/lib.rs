@@ -51,11 +51,21 @@ serde_impl!(|input| {
 
     "msgpack" => {
         parse: {
+            #[wasm_bindgen(module = "@msgpack/msgpack")]
+            extern "C" {
+                fn encode(input: &JsValue) -> Vec<u8>;
+            }
+
             let input = encode(&input);
             rmp_serde::from_slice(&input).unwrap_throw()
         },
 
         serialize: {
+            #[wasm_bindgen(module = "@msgpack/msgpack")]
+            extern "C" {
+                fn decode(input: &[u8]) -> JsValue;
+            }
+
             let input = rmp_serde::to_vec(input).unwrap_throw();
             decode(&input)
         },
