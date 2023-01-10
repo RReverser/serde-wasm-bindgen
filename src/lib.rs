@@ -83,7 +83,7 @@ pub fn to_value<T: serde::ser::Serialize + ?Sized>(value: &T) -> Result<JsValue>
     value.serialize(&Serializer::new())
 }
 
-pub(crate) const PRESERVED_VALUE_MAGIC: &'static str = "__serde_wasm_bindgen_PreservedValue";
+pub(crate) const PRESERVED_VALUE_MAGIC: &str = "__serde_wasm_bindgen_PreservedValue";
 
 /// A wrapper around a [`JsValue`] that makes it pass through serialization and deserialization unchanged.
 ///
