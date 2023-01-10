@@ -1,7 +1,10 @@
 use js_sys::{Array, JsString, Map, Number, Object, Uint8Array};
 use serde::ser::{self, Error as _, Serialize};
+use wasm_bindgen::convert::FromWasmAbi;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
+
+use crate::PRESERVED_VALUE_MAGIC;
 
 use super::{static_str_to_js, Error, ObjectExt};
 
@@ -391,10 +394,25 @@ impl<'s> ser::Serializer for &'s Serializer {
 
     fn serialize_newtype_struct<T: ?Sized + Serialize>(
         self,
-        _name: &'static str,
+        name: &'static str,
         value: &T,
     ) -> Result {
-        value.serialize(self)
+        if name == PRESERVED_VALUE_MAGIC {
+            let ptr = value.serialize(self)?;
+            let ptr = ptr.as_f64().ok_or_else(|| ptr)? as u32;
+            // This is airtight, and I don't see how to fix it without specialization.
+            // (we can't use TypeId::<T> because it needs T: 'static)
+            //
+            // When used with this crate's PreservedValue implementation, we can rely
+            // on `ptr` being an index of a `wasm-bindgen` `JsValue`; with other Serialize
+            // impls, we're unlikely to end up here but it isn't impossible.
+            //
+            // However, I believe that creating JsValues with invalid indices is not UB,
+            // because there is bounds-checking on wasm-bindgen's object array.
+            Ok(unsafe { JsValue::from_abi(ptr) })
+        } else {
+            value.serialize(self)
+        }
     }
 
     fn serialize_newtype_variant<T: ?Sized + Serialize>(

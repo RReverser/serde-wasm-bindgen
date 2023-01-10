@@ -2,6 +2,7 @@ use js_sys::{Array, ArrayBuffer, JsString, Number, Object, Symbol, Uint8Array};
 use serde::de::value::{MapDeserializer, SeqDeserializer};
 use serde::de::{self, IntoDeserializer};
 use std::convert::TryFrom;
+use wasm_bindgen::convert::IntoWasmAbi;
 use wasm_bindgen::{JsCast, JsValue, UnwrapThrowExt};
 
 use super::{static_str_to_js, Error, ObjectExt, Result};
@@ -448,10 +449,14 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     /// Simply calls `visit_newtype_struct`.
     fn deserialize_newtype_struct<V: de::Visitor<'de>>(
         self,
-        _name: &'static str,
+        name: &'static str,
         visitor: V,
     ) -> Result<V::Value> {
-        visitor.visit_newtype_struct(self)
+        if name == "__serde_wasm_bindgen_PreservedValue" {
+            visitor.visit_u32(self.value.into_abi())
+        } else {
+            visitor.visit_newtype_struct(self)
+        }
     }
 
     /// Supported inputs:

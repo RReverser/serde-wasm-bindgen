@@ -621,6 +621,22 @@ fn enums() {
 }
 
 #[wasm_bindgen_test]
+fn preserved_value() {
+    use serde_wasm_bindgen::PreservedValue;
+    test_via_into(PreservedValue(JsValue::from_f64(42.0)), 42);
+    test_via_into(PreservedValue(JsValue::from_str("hello")), "hello");
+
+    let res: PreservedValue = from_value(JsValue::from_f64(42.0)).unwrap();
+    assert_eq!(res.0.as_f64(), Some(42.0));
+
+    // Check that object identity is preserved.
+    let big_array: JsValue = js_sys::Int8Array::new_with_length(64).into();
+    let val = PreservedValue(big_array);
+    let res = to_value(&val).unwrap();
+    assert_eq!(res, val.0);
+}
+
+#[wasm_bindgen_test]
 fn structs() {
     #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
     struct Unit;
