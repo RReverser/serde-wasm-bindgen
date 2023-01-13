@@ -400,7 +400,7 @@ impl<'s> ser::Serializer for &'s Serializer {
         if name == PRESERVED_VALUE_MAGIC {
             let ptr = value.serialize(self)?;
             let ptr = ptr.as_f64().ok_or(ptr)? as u32;
-            // This is airtight, and I don't see how to fix it without specialization.
+            // This isn't airtight, and I don't see how to fix it without specialization.
             // (we can't use TypeId::<T> because it needs T: 'static)
             //
             // When used with this crate's PreservedValue implementation, we can rely

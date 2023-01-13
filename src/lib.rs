@@ -3,10 +3,10 @@
 #![warn(clippy::missing_const_for_fn)]
 
 use js_sys::JsString;
-use serde::de::Visitor;
 use wasm_bindgen::{
     convert::{FromWasmAbi, IntoWasmAbi},
     prelude::*,
+    JsCast,
 };
 
 mod de;
@@ -83,9 +83,8 @@ pub fn to_value<T: serde::ser::Serialize + ?Sized>(value: &T) -> Result<JsValue>
     value.serialize(&Serializer::new())
 }
 
-pub(crate) const PRESERVED_VALUE_MAGIC: &str = "__serde_wasm_bindgen_PreservedValue";
-
-/// A wrapper around a [`JsValue`] that makes it pass through serialization and deserialization unchanged.
+/// A wrapper around a [`JsValue`] (or anything that can be cast into one)
+/// that makes it pass through serialization and deserialization unchanged.
 ///
 /// # Example
 /// ```rust
@@ -93,7 +92,7 @@ pub(crate) const PRESERVED_VALUE_MAGIC: &str = "__serde_wasm_bindgen_PreservedVa
 /// #[derive(serde::Serialize)]
 /// struct MyStruct {
 ///     int_field: i32,
-///     js_field: PreservedValue,
+///     js_field: PreservedValue<JsValue>,
 /// }
 /// let big_array = js_sys::Int8Array::new_with_length(1000);
 /// let s = MyStruct {
@@ -106,43 +105,36 @@ pub(crate) const PRESERVED_VALUE_MAGIC: &str = "__serde_wasm_bindgen_PreservedVa
 /// to_value(&s);
 /// ```
 #[derive(Clone, Debug, PartialEq)]
-pub struct PreservedValue(pub JsValue);
+pub struct PreservedValue<T: JsCast>(pub T);
 
-impl<'de> serde::Deserialize<'de> for PreservedValue {
+pub(crate) const PRESERVED_VALUE_MAGIC: &str = "1fc430ca-5b7f-4295-92de-33cf2b145d38";
+
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(rename = "1fc430ca-5b7f-4295-92de-33cf2b145d38")]
+struct PreservedValueWrapper(u32);
+
+impl<'de, T: JsCast> serde::Deserialize<'de> for PreservedValue<T> {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        struct Visit;
+        use serde::de::Error;
 
-        impl<'v> Visitor<'v> for Visit {
-            type Value = PreservedValue;
-
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("an integer pointing to a JsValue on the wasm heap")
-            }
-
-            fn visit_u32<E>(self, v: u32) -> std::result::Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                // This is only correct for *our* deserializer. Some other deserializer
-                // could call us with some weird value and we'd cast it to a JsValue index.
-                // This would be wildly incorrect, but it should be safe because wasm-bindgen
-                // bounds-checks its JsValue indices.
-                Ok(PreservedValue(unsafe { JsValue::from_abi(v) }))
-            }
-        }
-
-        deserializer.deserialize_newtype_struct(PRESERVED_VALUE_MAGIC, Visit)
+        PreservedValueWrapper::deserialize(deserializer).and_then(|wrapper| {
+            let val: JsValue = unsafe { FromWasmAbi::from_abi(wrapper.0) };
+            val.dyn_into()
+                .map(|val| PreservedValue(val))
+                .map_err(|e| D::Error::custom(format!("incompatible JS value {e:?}")))
+        })
     }
 }
 
-impl serde::Serialize for PreservedValue {
+impl<T: JsCast> serde::Serialize for PreservedValue<T> {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        serializer.serialize_newtype_struct(PRESERVED_VALUE_MAGIC, &self.0.clone().into_abi())
+        let idx = self.0.as_ref().clone().into_abi();
+        PreservedValueWrapper(idx).serialize(serializer)
     }
 }
