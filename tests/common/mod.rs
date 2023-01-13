@@ -634,6 +634,15 @@ fn preserved_value() {
     let val = PreservedValue(big_array);
     let res = to_value(&val).unwrap();
     assert_eq!(res, JsValue::from(val.0));
+
+    // The JsCasts are checked on deserialization.
+    let bool = js_sys::Boolean::from(true);
+    let serialized = to_value(&PreservedValue(bool)).unwrap();
+    let res: Result<PreservedValue<Number>, _> = from_value(serialized);
+    assert_eq!(
+        res.unwrap_err().to_string(),
+        Error::custom("incompatible JS value JsValue(true)").to_string()
+    );
 }
 
 #[wasm_bindgen_test]

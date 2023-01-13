@@ -140,6 +140,9 @@ impl<T: JsCast> serde::Serialize for PreservedValue<T> {
     where
         S: serde::Serializer,
     {
+        // Since we don't own `self` we need to clone it. Otherwise serializing a JsValue
+        // will produce a second JsValue pointing to the same index in the wasm-bindgen heap,
+        // and whichever one is dropped first will leave the other one dangling.
         let idx = self.0.as_ref().clone().into_abi();
         PreservedValueWrapper(idx).serialize(serializer)
     }
