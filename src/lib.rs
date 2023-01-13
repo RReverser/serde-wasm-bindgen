@@ -107,6 +107,7 @@ pub fn to_value<T: serde::ser::Serialize + ?Sized>(value: &T) -> Result<JsValue>
 #[derive(Clone, Debug, PartialEq)]
 pub struct PreservedValue<T: JsCast>(pub T);
 
+// Some arbitrary string that no one will collide with unless they try.
 pub(crate) const PRESERVED_VALUE_MAGIC: &str = "1fc430ca-5b7f-4295-92de-33cf2b145d38";
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -121,6 +122,11 @@ impl<'de, T: JsCast> serde::Deserialize<'de> for PreservedValue<T> {
         use serde::de::Error;
 
         PreservedValueWrapper::deserialize(deserializer).and_then(|wrapper| {
+            // When used with our deserializer this unsafe is correct, because the
+            // deserializer just converted a JsValue into_abi.
+            // With other deserializers, this may be incorrect but it shouldn't be UB
+            // because JsValues are represented using indices into a JS-side (i.e.
+            // bounds-checked) array.
             let val: JsValue = unsafe { FromWasmAbi::from_abi(wrapper.0) };
             val.dyn_into()
                 .map(|val| PreservedValue(val))
