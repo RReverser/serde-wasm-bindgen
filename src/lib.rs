@@ -2,6 +2,8 @@
 #![warn(missing_docs)]
 #![warn(clippy::missing_const_for_fn)]
 
+use std::convert::TryFrom;
+
 use js_sys::JsString;
 use wasm_bindgen::{
     convert::{FromWasmAbi, IntoWasmAbi},
@@ -104,8 +106,13 @@ pub fn to_value<T: serde::ser::Serialize + ?Sized>(value: &T) -> Result<JsValue>
 /// // `js_field` will be an `Int8Array` pointing to the same underlying JavaScript object as `big_array`.
 /// to_value(&s);
 /// ```
-#[derive(Clone, Debug, PartialEq)]
-pub struct PreservedValue<T: JsCast>(pub T);
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(
+    into = "PreservedValueWrapper",
+    try_from = "PreservedValueWrapper",
+    bound = "T : JsCast + Clone"
+)]
+pub struct PreservedValue<T: JsCast + Clone>(pub T);
 
 // Some arbitrary string that no one will collide with unless they try.
 pub(crate) const PRESERVED_VALUE_MAGIC: &str = "1fc430ca-5b7f-4295-92de-33cf2b145d38";
@@ -114,36 +121,25 @@ pub(crate) const PRESERVED_VALUE_MAGIC: &str = "1fc430ca-5b7f-4295-92de-33cf2b14
 #[serde(rename = "1fc430ca-5b7f-4295-92de-33cf2b145d38")]
 struct PreservedValueWrapper(u32);
 
-impl<'de, T: JsCast> serde::Deserialize<'de> for PreservedValue<T> {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        use serde::de::Error;
-
-        PreservedValueWrapper::deserialize(deserializer).and_then(|wrapper| {
-            // When used with our deserializer this unsafe is correct, because the
-            // deserializer just converted a JsValue into_abi.
-            // With other deserializers, this may be incorrect but it shouldn't be UB
-            // because JsValues are represented using indices into a JS-side (i.e.
-            // bounds-checked) array.
-            let val: JsValue = unsafe { FromWasmAbi::from_abi(wrapper.0) };
-            val.dyn_into()
-                .map(|val| PreservedValue(val))
-                .map_err(|e| D::Error::custom(format!("incompatible JS value {e:?}")))
-        })
+impl<T: JsCast + Clone> From<PreservedValue<T>> for PreservedValueWrapper {
+    fn from(val: PreservedValue<T>) -> Self {
+        PreservedValueWrapper(val.0.into().into_abi())
     }
 }
 
-impl<T: JsCast> serde::Serialize for PreservedValue<T> {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        // Since we don't own `self` we need to clone it. Otherwise serializing a JsValue
-        // will produce a second JsValue pointing to the same index in the wasm-bindgen heap,
-        // and whichever one is dropped first will leave the other one dangling.
-        let idx = self.0.as_ref().clone().into_abi();
-        PreservedValueWrapper(idx).serialize(serializer)
+impl<T: JsCast + Clone> TryFrom<PreservedValueWrapper> for PreservedValue<T> {
+    // JsValue would be more natural, but serde insists on a `Display` error.
+    type Error = String;
+
+    fn try_from(wrap: PreservedValueWrapper) -> std::result::Result<Self, String> {
+        // When used with our deserializer this unsafe is correct, because the
+        // deserializer just converted a JsValue into_abi.
+        // With other deserializers, this may be incorrect but it shouldn't be UB
+        // because JsValues are represented using indices into a JS-side (i.e.
+        // bounds-checked) array.
+        let val: JsValue = unsafe { FromWasmAbi::from_abi(wrap.0) };
+        val.dyn_into()
+            .map(|val| PreservedValue(val))
+            .map_err(|e| format!("incompatible JS value {e:?}"))
     }
 }
