@@ -119,6 +119,9 @@ mod preserved_value {
     struct PreservedValueWrapper(u32);
 
     pub fn serialize<S: serde::Serializer, T: JsCast>(val: &T, ser: S) -> Result<S::Ok, S::Error> {
+        // Since we don't own `val` we need to clone it. Otherwise serializing a JsValue
+        // will produce a second JsValue pointing to the same index in the wasm-bindgen heap,
+        // and whichever one is dropped first will leave the other one dangling.
         PreservedValueWrapper(val.as_ref().clone().into_abi()).serialize(ser)
     }
 
