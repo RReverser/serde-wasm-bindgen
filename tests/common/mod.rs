@@ -622,7 +622,10 @@ fn enums() {
 
 #[wasm_bindgen_test]
 fn preserved_value() {
-    use serde_wasm_bindgen::PreservedValue;
+    #[derive(serde::Deserialize, serde::Serialize, PartialEq, Clone, Debug)]
+    #[serde(bound = "T: JsCast")]
+    struct PreservedValue<T: JsCast>(#[serde(with = "serde_wasm_bindgen::preserve")] T);
+
     test_via_into(PreservedValue(JsValue::from_f64(42.0)), 42);
     test_via_into(PreservedValue(JsValue::from_str("hello")), "hello");
 

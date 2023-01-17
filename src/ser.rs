@@ -4,8 +4,6 @@ use wasm_bindgen::convert::FromWasmAbi;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
-use crate::PRESERVED_VALUE_MAGIC;
-
 use super::{static_str_to_js, Error, ObjectExt};
 
 type Result<T = JsValue> = super::Result<T>;
@@ -397,7 +395,7 @@ impl<'s> ser::Serializer for &'s Serializer {
         name: &'static str,
         value: &T,
     ) -> Result {
-        if name == PRESERVED_VALUE_MAGIC {
+        if name == crate::preserve::PRESERVED_VALUE_MAGIC {
             let ptr = value.serialize(self)?;
             let ptr = ptr.as_f64().ok_or(ptr)? as u32;
             // This isn't airtight, and I don't see how to fix it without specialization.

@@ -5,8 +5,6 @@ use std::convert::TryFrom;
 use wasm_bindgen::convert::IntoWasmAbi;
 use wasm_bindgen::{JsCast, JsValue, UnwrapThrowExt};
 
-use crate::PRESERVED_VALUE_MAGIC;
-
 use super::{static_str_to_js, Error, ObjectExt, Result};
 
 /// Provides [`de::SeqAccess`] from any JS iterator.
@@ -454,7 +452,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
         name: &'static str,
         visitor: V,
     ) -> Result<V::Value> {
-        if name == PRESERVED_VALUE_MAGIC {
+        if name == crate::preserve::PRESERVED_VALUE_MAGIC {
             let de = Deserializer {
                 value: JsValue::from(self.value.into_abi()),
             };

@@ -3,7 +3,7 @@
 #![warn(clippy::missing_const_for_fn)]
 
 use js_sys::JsString;
-use wasm_bindgen::{prelude::*, JsCast};
+use wasm_bindgen::prelude::*;
 
 mod de;
 mod error;
@@ -79,45 +79,48 @@ pub fn to_value<T: serde::ser::Serialize + ?Sized>(value: &T) -> Result<JsValue>
     value.serialize(&Serializer::new())
 }
 
-/// A wrapper around a [`JsValue`] (or anything that can be cast into one)
-/// that makes it pass through serialization and deserialization unchanged.
+/// Serialization and deserialization functions that pass JavaScript objects through unchanged.
 ///
-/// # Example
+/// This module is compatible with the `serde(with)` annotation, so for example if you create
+/// the struct
+///
 /// ```rust
-/// use serde_wasm_bindgen::{PreservedValue, to_value};
 /// #[derive(serde::Serialize)]
 /// struct MyStruct {
 ///     int_field: i32,
-///     js_field: PreservedValue<JsValue>,
+///     #[serde(with = "serde_wasm_bindgen::preserve")]
+///     js_field: js_sys::Int8Array,
 /// }
-/// let big_array = js_sys::Int8Array::new_with_length(1000);
+///
 /// let s = MyStruct {
 ///     int_field: 5,
-///     js_field: PreservedValue(big_array.into()),
+///     js_field: js_sys::Int8Array::new_with_length(1000),
 /// };
-///
-/// // Will return a JsValue representing an object with two fields (`int_field` and `js_field`).
-/// // `js_field` will be an `Int8Array` pointing to the same underlying JavaScript object as `big_array`.
-/// to_value(&s);
 /// ```
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(bound = "T: JsCast")]
-pub struct PreservedValue<T: JsCast>(#[serde(with = "preserved_value")] pub T);
-
-// Some arbitrary string that no one will collide with unless they try.
-pub(crate) const PRESERVED_VALUE_MAGIC: &str = "1fc430ca-5b7f-4295-92de-33cf2b145d38";
-
-mod preserved_value {
+///
+/// then `serde_wasm_bindgen::to_value(&s)`
+/// will return a JsValue representing an object with two fields (`int_field` and `js_field`), where
+/// `js_field` will be an `Int8Array` pointing to the same underlying JavaScript object as `s.js_field` does.
+pub mod preserve {
     use serde::{de::Error, Deserialize, Serialize};
     use wasm_bindgen::{
         convert::{FromWasmAbi, IntoWasmAbi},
         JsCast, JsValue,
     };
 
+    // Some arbitrary string that no one will collide with unless they try.
+    pub(crate) const PRESERVED_VALUE_MAGIC: &str = "1fc430ca-5b7f-4295-92de-33cf2b145d38";
+
     #[derive(Serialize, Deserialize)]
     #[serde(rename = "1fc430ca-5b7f-4295-92de-33cf2b145d38")]
     struct PreservedValueWrapper(u32);
 
+    /// Serialize any `JsCast` value.
+    ///
+    /// When used with the `Serializer` in `serde_wasm_bindgen`, this serializes the value by
+    /// passing it through as a `JsValue`.
+    ///
+    /// This function is compatible with the `serde(serialize_with)` derive annotation.
     pub fn serialize<S: serde::Serializer, T: JsCast>(val: &T, ser: S) -> Result<S::Ok, S::Error> {
         // Since we don't own `val` we need to clone it. Otherwise serializing a JsValue
         // will produce a second JsValue pointing to the same index in the wasm-bindgen heap,
@@ -125,6 +128,12 @@ mod preserved_value {
         PreservedValueWrapper(val.as_ref().clone().into_abi()).serialize(ser)
     }
 
+    /// Deserialize any `JsCast` value.
+    ///
+    /// When used with the `Derializer` in `serde_wasm_bindgen`, this serializes the value by
+    /// passing it through as a `JsValue` and casting it.
+    ///
+    /// This function is compatible with the `serde(deserialize_with)` derive annotation.
     pub fn deserialize<'de, D: serde::Deserializer<'de>, T: JsCast>(de: D) -> Result<T, D::Error> {
         let wrap = PreservedValueWrapper::deserialize(de)?;
         // When used with our deserializer this unsafe is correct, because the
