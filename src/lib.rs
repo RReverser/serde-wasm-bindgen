@@ -134,6 +134,6 @@ mod preserved_value {
         // bounds-checked) array.
         let val: JsValue = unsafe { FromWasmAbi::from_abi(wrap.0) };
         val.dyn_into()
-            .map_err(|e| D::Error::custom(format!("incompatible JS value {e:?}")))
+            .map_err(|e| D::Error::custom(format_args!("incompatible JS value {e:?}")))
     }
 }
