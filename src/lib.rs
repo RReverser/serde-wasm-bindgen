@@ -133,7 +133,11 @@ mod preserved_value {
         // because JsValues are represented using indices into a JS-side (i.e.
         // bounds-checked) array.
         let val: JsValue = unsafe { FromWasmAbi::from_abi(wrap.0) };
-        val.dyn_into()
-            .map_err(|e| D::Error::custom(format_args!("incompatible JS value {e:?}")))
+        val.dyn_into().map_err(|e| {
+            D::Error::custom(format_args!(
+                "incompatible JS value {e:?} for type {}",
+                std::any::type_name::<T>()
+            ))
+        })
     }
 }

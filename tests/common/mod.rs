@@ -641,7 +641,7 @@ fn preserved_value() {
     let res: Result<PreservedValue<Number>, _> = from_value(serialized);
     assert_eq!(
         res.unwrap_err().to_string(),
-        Error::custom("incompatible JS value JsValue(true)").to_string()
+        Error::custom("incompatible JS value JsValue(true) for type js_sys::Number").to_string()
     );
 }
 
