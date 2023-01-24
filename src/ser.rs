@@ -199,7 +199,7 @@ impl<'s> ObjectSerializer<'s> {
         }
     }
 
-    pub fn new_preserved(serializer: &'s Serializer) -> Self {
+    pub const fn new_preserved(serializer: &'s Serializer) -> Self {
         Self {
             serializer,
             target: ObjectTarget::Preserved(None),
