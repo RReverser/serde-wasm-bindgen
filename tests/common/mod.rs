@@ -646,6 +646,11 @@ fn preserved_value() {
         res.unwrap_err().to_string(),
         Error::custom("incompatible JS value JsValue(true) for type js_sys::Number").to_string()
     );
+
+    // serde_json fails to round-trip
+    let s = serde_json::to_string(&PreservedValue(JsValue::from_f64(42.0))).unwrap();
+    let val: Result<PreservedValue<JsValue>, _> = serde_json::from_str(&s);
+    assert!(val.is_err());
 }
 
 #[wasm_bindgen_test]

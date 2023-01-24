@@ -181,16 +181,28 @@ impl ser::SerializeMap for MapSerializer<'_> {
     }
 }
 
+enum ObjectTarget {
+    Object(ObjectExt),
+    Preserved(Option<u32>),
+}
+
 pub struct ObjectSerializer<'s> {
     serializer: &'s Serializer,
-    target: ObjectExt,
+    target: ObjectTarget,
 }
 
 impl<'s> ObjectSerializer<'s> {
     pub fn new(serializer: &'s Serializer) -> Self {
         Self {
             serializer,
-            target: Object::new().unchecked_into::<ObjectExt>(),
+            target: ObjectTarget::Object(Object::new().unchecked_into::<ObjectExt>()),
+        }
+    }
+
+    pub fn new_preserved(serializer: &'s Serializer) -> Self {
+        Self {
+            serializer,
+            target: ObjectTarget::Preserved(None),
         }
     }
 }
@@ -204,13 +216,44 @@ impl ser::SerializeStruct for ObjectSerializer<'_> {
         key: &'static str,
         value: &T,
     ) -> Result<()> {
-        let value = value.serialize(self.serializer)?;
-        self.target.set(static_str_to_js(key), value);
-        Ok(())
+        match &mut self.target {
+            ObjectTarget::Object(obj) => {
+                let value = value.serialize(self.serializer)?;
+                obj.set(static_str_to_js(key), value);
+                Ok(())
+            }
+            ObjectTarget::Preserved(idx) => {
+                if key == "abi" {
+                    let ptr = value.serialize(self.serializer)?;
+                    *idx = Some(ptr.as_f64().ok_or(ptr)? as u32);
+                    Ok(())
+                } else if key == crate::preserve::PRESERVED_VALUE_WARNING {
+                    Ok(())
+                } else {
+                    Err(Error::new(format!(
+                        "unknown field {key} when serializing preserved value"
+                    )))
+                }
+            }
+        }
     }
 
     fn end(self) -> Result {
-        Ok(self.target.into())
+        match self.target {
+            ObjectTarget::Object(obj) => Ok(obj.into()),
+            ObjectTarget::Preserved(Some(idx)) => {
+                // When used with this crate's PreservedValue implementation, we can rely
+                // on `idx` being an index of a `wasm-bindgen` `JsValue`; with other Serialize
+                // impls, we're unlikely to end up here but it isn't impossible.
+                //
+                // However, I believe that creating JsValues with invalid indices is not UB,
+                // because there is bounds-checking on wasm-bindgen's object array.
+                Ok(unsafe { JsValue::from_abi(idx) })
+            }
+            ObjectTarget::Preserved(None) => {
+                Err(Error::new("no index when serializing preserved value"))
+            }
+        }
     }
 }
 
@@ -392,25 +435,10 @@ impl<'s> ser::Serializer for &'s Serializer {
 
     fn serialize_newtype_struct<T: ?Sized + Serialize>(
         self,
-        name: &'static str,
+        _name: &'static str,
         value: &T,
     ) -> Result {
-        if name == crate::preserve::PRESERVED_VALUE_MAGIC {
-            let ptr = value.serialize(self)?;
-            let ptr = ptr.as_f64().ok_or(ptr)? as u32;
-            // This isn't airtight, and I don't see how to fix it without specialization.
-            // (we can't use TypeId::<T> because it needs T: 'static)
-            //
-            // When used with this crate's PreservedValue implementation, we can rely
-            // on `ptr` being an index of a `wasm-bindgen` `JsValue`; with other Serialize
-            // impls, we're unlikely to end up here but it isn't impossible.
-            //
-            // However, I believe that creating JsValues with invalid indices is not UB,
-            // because there is bounds-checking on wasm-bindgen's object array.
-            Ok(unsafe { JsValue::from_abi(ptr) })
-        } else {
-            value.serialize(self)
-        }
+        value.serialize(self)
     }
 
     fn serialize_newtype_variant<T: ?Sized + Serialize>(
@@ -460,8 +488,12 @@ impl<'s> ser::Serializer for &'s Serializer {
     }
 
     /// Serialises Rust typed structs into plain JS objects.
-    fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
-        Ok(ObjectSerializer::new(self))
+    fn serialize_struct(self, name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
+        if name == crate::preserve::PRESERVED_VALUE_MAGIC {
+            Ok(ObjectSerializer::new_preserved(self))
+        } else {
+            Ok(ObjectSerializer::new(self))
+        }
     }
 
     fn serialize_struct_variant(

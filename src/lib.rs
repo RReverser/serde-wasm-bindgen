@@ -110,10 +110,22 @@ pub mod preserve {
 
     // Some arbitrary string that no one will collide with unless they try.
     pub(crate) const PRESERVED_VALUE_MAGIC: &str = "1fc430ca-5b7f-4295-92de-33cf2b145d38";
+    pub(crate) const PRESERVED_VALUE_WARNING: &str =
+        "dont_serialize_except_with_serde_wasm_bindgen";
 
-    #[derive(Serialize, Deserialize)]
+    #[derive(Serialize)]
     #[serde(rename = "1fc430ca-5b7f-4295-92de-33cf2b145d38")]
-    struct PreservedValueWrapper(u32);
+    struct PreservedValueSerWrapper {
+        dont_serialize_except_with_serde_wasm_bindgen: bool,
+        abi: u32,
+    }
+
+    #[derive(Deserialize)]
+    #[serde(rename = "1fc430ca-5b7f-4295-92de-33cf2b145d38")]
+    struct PreservedValueDeWrapper {
+        #[serde(rename = "1fc430ca-5b7f-4295-92de-33cf2b145d38")]
+        abi: u32,
+    }
 
     /// Serialize any `JsCast` value.
     ///
@@ -125,7 +137,11 @@ pub mod preserve {
         // Since we don't own `val` we need to clone it. Otherwise serializing a JsValue
         // will produce a second JsValue pointing to the same index in the wasm-bindgen heap,
         // and whichever one is dropped first will leave the other one dangling.
-        PreservedValueWrapper(val.as_ref().clone().into_abi()).serialize(ser)
+        PreservedValueSerWrapper {
+            dont_serialize_except_with_serde_wasm_bindgen: true,
+            abi: val.as_ref().clone().into_abi(),
+        }
+        .serialize(ser)
     }
 
     /// Deserialize any `JsCast` value.
@@ -135,13 +151,17 @@ pub mod preserve {
     ///
     /// This function is compatible with the `serde(deserialize_with)` derive annotation.
     pub fn deserialize<'de, D: serde::Deserializer<'de>, T: JsCast>(de: D) -> Result<T, D::Error> {
-        let wrap = PreservedValueWrapper::deserialize(de)?;
+        let wrap = PreservedValueDeWrapper::deserialize(de)?;
         // When used with our deserializer this unsafe is correct, because the
         // deserializer just converted a JsValue into_abi.
-        // With other deserializers, this may be incorrect but it shouldn't be UB
-        // because JsValues are represented using indices into a JS-side (i.e.
-        // bounds-checked) array.
-        let val: JsValue = unsafe { FromWasmAbi::from_abi(wrap.0) };
+        //
+        // Other deserializers are unlikely to end up here, thanks
+        // to the asymmetry between PreservedValueSerWrapper and
+        // PreservedValueDeWrapper. Even if some other deserializer ends up
+        // here, this may be incorrect but it shouldn't be UB because JsValues
+        // are represented using indices into a JS-side (i.e. bounds-checked)
+        // array.
+        let val: JsValue = unsafe { FromWasmAbi::from_abi(wrap.abi) };
         val.dyn_into().map_err(|e| {
             D::Error::custom(format_args!(
                 "incompatible JS value {e:?} for type {}",
