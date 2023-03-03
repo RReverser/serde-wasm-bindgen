@@ -480,6 +480,20 @@ fn bytes() {
 }
 
 #[wasm_bindgen_test]
+fn bytes_as_array() {
+    let src = [1, 2, 3];
+    // Convert to a JS value
+    let serializer = Serializer::new().serialize_bytes_as_arrays(true);
+    let bytes = &serde_bytes::Bytes::new(&src);
+    let value = bytes.serialize(&serializer).unwrap();
+    // Make sure the JS value is an Array.
+    value.dyn_ref::<js_sys::Array>().unwrap();
+    // Now, try to deserialize back.
+    let deserialized: serde_bytes::ByteBuf = from_value(value).unwrap();
+    assert_eq!(deserialized.as_ref(), src);
+}
+
+#[wasm_bindgen_test]
 fn options() {
     test_via_into(Some(0_u32), 0_u32);
     test_via_into(Some(32_u32), 32_u32);

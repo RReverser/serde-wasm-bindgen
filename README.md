@@ -110,7 +110,7 @@ By default, Rust ⬄ JavaScript conversions in `serde-wasm-bindgen` follow this 
 | `HashMap<K, V>`, `BTreeMap`, etc. | `Map<K, V>`                          | any iterable over `[K, V]`     |
 | `Struct { key1: value1, … }`      | `{ key1: value1, … }` object         |                                |
 | tuple, `Vec<T>`, `HashSet`, etc.  | `T[]` array                          | any iterable over `T`          |
-| [`serde_bytes`] byte buffer       | `Uint8Array`                         | `ArrayBuffer`                  |
+| [`serde_bytes`] byte buffer       | `Uint8Array`                         | `ArrayBuffer`, `Array`         |
 
 [as configured in Serde]: https://serde.rs/enum-representations.html
 [safe integer]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/isSafeInteger
@@ -121,13 +121,14 @@ are additionally supported when deserializing from JavaScript to the Rust type.
 
 ### Serializer configuration options
 
-You can customize serialization from Rust to JavaScript by setting the following options on the [`Serializer::new()`](https://docs.rs/serde-wasm-bindgen/latest/serde_wasm_bindgen/struct.Serializer.html) instance:
+You can customize serialization from Rust to JavaScript by setting the following options on the [`Serializer::new()`](https://docs.rs/serde-wasm-bindgen/latest/serde_wasm_bindgen/struct.Serializer.html) instance (all default to false):
 
 - `.serialize_missing_as_null(true)`: Serialize `()`, unit structs and `Option::None` to `null` instead of `undefined`.
-- `.serialize_maps_as_objects(true)`: Serialize maps into plain JavaScript objects instead of ES2015 Maps. false by default.
+- `.serialize_maps_as_objects(true)`: Serialize maps into plain JavaScript objects instead of ES2015 Maps.
 - `.serialize_large_number_types_as_bigints(true)`: Serialize `u64`, `i64`, `usize` and `isize` to `bigint`s instead of attempting to fit them into the [safe integer] `number` or failing.
+- `.serialize_bytes_as_arrays(true)`: Serialize bytes into plain JavaScript arrays instead of ES2015 Uint8Arrays.
 
-You can also use the `Serializer::json_compatible()` preset to create a JSON compatible serializer. It enables `serialize_missing_as_null` and `serialize_maps_as_objects` under the hood.
+You can also use the `Serializer::json_compatible()` preset to create a JSON compatible serializer. It enables `serialize_missing_as_null`, `serialize_maps_as_objects`, and `serialize_bytes_as_arrays` under the hood.
 
 ## License
 

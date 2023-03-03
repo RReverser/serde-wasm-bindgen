@@ -239,6 +239,14 @@ impl Deserializer {
             _ => self.invalid_type(visitor),
         }
     }
+
+    fn deserialize_from_array<'de, V: de::Visitor<'de>>(
+        &self,
+        visitor: V,
+        array: &Array,
+    ) -> Result<V::Value> {
+        visitor.visit_seq(SeqDeserializer::new(array.iter().map(Deserializer::from)))
+    }
 }
 
 impl<'de> de::Deserializer<'de> for Deserializer {
@@ -460,7 +468,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     ///  - Any Rust sequence from Serde point of view ([`Vec`], [`HashSet`](std::collections::HashSet), etc.)
     fn deserialize_seq<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         if let Some(arr) = self.value.dyn_ref::<Array>() {
-            visitor.visit_seq(SeqDeserializer::new(arr.iter().map(Deserializer::from)))
+            self.deserialize_from_array(visitor, arr)
         } else if let Some(iter) = js_sys::try_iter(&self.value)? {
             visitor.visit_seq(SeqAccess { iter })
         } else {
@@ -559,10 +567,12 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     ///
     /// Supported inputs:
     ///  - `ArrayBuffer` - converted to an `Uint8Array` view first.
-    ///  - `Uint8Array` - copied to a newly created `Vec<u8>` on the Rust side.
+    ///  - `Uint8Array`, `Array` - copied to a newly created `Vec<u8>` on the Rust side.
     fn deserialize_byte_buf<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         if let Some(bytes) = self.as_bytes() {
             visitor.visit_byte_buf(bytes)
+        } else if let Some(arr) = self.value.dyn_ref::<Array>() {
+            self.deserialize_from_array(visitor, arr)
         } else {
             self.invalid_type(visitor)
         }

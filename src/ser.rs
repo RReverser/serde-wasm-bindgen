@@ -219,6 +219,7 @@ pub struct Serializer {
     serialize_missing_as_null: bool,
     serialize_maps_as_objects: bool,
     serialize_large_number_types_as_bigints: bool,
+    serialize_bytes_as_arrays: bool,
 }
 
 impl Serializer {
@@ -228,6 +229,7 @@ impl Serializer {
             serialize_missing_as_null: false,
             serialize_maps_as_objects: false,
             serialize_large_number_types_as_bigints: false,
+            serialize_bytes_as_arrays: false,
         }
     }
 
@@ -240,6 +242,7 @@ impl Serializer {
             serialize_missing_as_null: true,
             serialize_maps_as_objects: true,
             serialize_large_number_types_as_bigints: false,
+            serialize_bytes_as_arrays: true,
         }
     }
 
@@ -261,6 +264,13 @@ impl Serializer {
     /// plain numbers. `false` by default.
     pub const fn serialize_large_number_types_as_bigints(mut self, value: bool) -> Self {
         self.serialize_large_number_types_as_bigints = value;
+        self
+    }
+
+    /// Set to `true` to serialize bytes into plain JavaScript arrays instead of
+    /// ES2015 `Uint8Array`s. `false` by default.
+    pub const fn serialize_bytes_as_arrays(mut self, value: bool) -> Self {
+        self.serialize_bytes_as_arrays = value;
         self
     }
 }
@@ -354,9 +364,12 @@ impl<'s> ser::Serializer for &'s Serializer {
         //
         // This is necessary because any allocation in WebAssembly can require reallocation of the
         // backing memory, which will invalidate existing views (including `Uint8Array`).
-        Ok(JsValue::from(Uint8Array::new(
-            unsafe { Uint8Array::view(v) }.as_ref(),
-        )))
+        let view = unsafe { Uint8Array::view(v) };
+        if self.serialize_bytes_as_arrays {
+            Ok(JsValue::from(Array::from(view.as_ref())))
+        } else {
+            Ok(JsValue::from(Uint8Array::new(view.as_ref())))
+        }
     }
 
     fn serialize_none(self) -> Result {
