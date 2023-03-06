@@ -494,6 +494,18 @@ fn bytes_as_array() {
 }
 
 #[wasm_bindgen_test]
+fn bytes_from_mixed_array() {
+    // The string "xyz" cannot convert to a u8
+    let value = (100, "xyz".to_string(), true)
+        .serialize(&SERIALIZER)
+        .unwrap();
+    from_value::<serde_bytes::ByteBuf>(value).unwrap_err();
+    // The number 256 cannot convert to a u8
+    let value = (100, 256, 100).serialize(&SERIALIZER).unwrap();
+    from_value::<serde_bytes::ByteBuf>(value).unwrap_err();
+}
+
+#[wasm_bindgen_test]
 fn options() {
     test_via_into(Some(0_u32), 0_u32);
     test_via_into(Some(32_u32), 32_u32);
