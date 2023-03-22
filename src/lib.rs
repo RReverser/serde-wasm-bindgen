@@ -78,3 +78,13 @@ pub fn from_value<T: serde::de::DeserializeOwned>(value: JsValue) -> Result<T> {
 pub fn to_value<T: serde::ser::Serialize + ?Sized>(value: &T) -> Result<JsValue> {
     value.serialize(&Serializer::new())
 }
+
+/// Converts JSON-compatible [`JsValue`] into a Rust type.
+pub fn from_json_value<T: serde::de::DeserializeOwned>(value: JsValue) -> Result<T> {
+    T::deserialize(Deserializer::from(value))
+}
+
+/// Converts a Rust value into a JSON-compatible [`JsValue`].
+pub fn to_json_value<T: serde::ser::Serialize + ?Sized>(value: &T) -> Result<JsValue> {
+    value.serialize(&Serializer::json_compatible())
+}
