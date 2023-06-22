@@ -391,7 +391,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
             NEXT_PRESERVE
                 .lock()
                 .unwrap()
-                .replace(JsValueKeeper(self.value.clone()));
+                .replace(JsValueKeeper(self.value));
             visitor.visit_i64(0)
         } else if self.value.is_bigint() {
             match i64::try_from(self.value) {
