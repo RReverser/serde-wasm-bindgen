@@ -261,14 +261,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     type Error = Error;
 
     fn deserialize_any<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        let expecting = format!("{}", GetVisitorExpecting(&visitor));
-        if expecting == "struct PreserveJsValue" {
-            NEXT_PRESERVE
-                .lock()
-                .unwrap()
-                .replace(JsValueKeeper(self.value.clone()));
-            visitor.visit_i64(0)
-        } else if self.is_nullish() {
+        if self.is_nullish() {
             // Ideally we would only treat `undefined` as `()` / `None` which would be semantically closer
             // to JS definitions, but, unfortunately, WebIDL generates missing values as `null`
             // and we probably want to support these as well.
@@ -393,7 +386,14 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     }
 
     fn deserialize_i64<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        if self.value.is_bigint() {
+        let expecting = format!("{}", GetVisitorExpecting(&visitor));
+        if expecting == "struct PreserveJsValue" {
+            NEXT_PRESERVE
+                .lock()
+                .unwrap()
+                .replace(JsValueKeeper(self.value.clone()));
+            visitor.visit_i64(0)
+        } else if self.value.is_bigint() {
             match i64::try_from(self.value) {
                 Ok(v) => visitor.visit_i64(v),
                 Err(_) => Err(de::Error::custom(

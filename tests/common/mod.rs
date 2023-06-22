@@ -821,15 +821,18 @@ fn serde_default_fields() {
 }
 
 #[wasm_bindgen_test]
-fn preser_js_value() {
+fn preserve_js_value() {
     #[derive(Serialize, Deserialize)]
     struct Test {
-        value: PreserveJsValue<JsValue>,
+        my_value: PreserveJsValue<JsValue>,
     }
     let input = Test {
-        value: PreserveJsValue(JsValue::TRUE),
+        my_value: PreserveJsValue(JsValue::TRUE),
     };
     let js = to_value(&input).unwrap();
+    // println!("####### HELLO #######");
+    println!("{:?}", js);
     let output: Test = from_value(js).unwrap();
-    assert!(output.value.0.is_truthy());
+    // panic!("####### HELLO ####### {:?}", output);
+    assert!(output.my_value.0.is_truthy());
 }
