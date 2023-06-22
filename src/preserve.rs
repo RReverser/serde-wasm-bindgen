@@ -5,7 +5,7 @@ use serde::{
 use std::{fmt, sync::Mutex};
 use wasm_bindgen::JsValue;
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PreserveJsValue<T: From<JsValue> + Into<JsValue> + Clone>(pub T);
 
 #[derive(Clone)]
