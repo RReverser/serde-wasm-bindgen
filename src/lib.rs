@@ -7,10 +7,12 @@ use wasm_bindgen::prelude::*;
 
 mod de;
 mod error;
+mod preserve;
 mod ser;
 
 pub use de::Deserializer;
 pub use error::Error;
+pub use preserve::*;
 pub use ser::Serializer;
 
 type Result<T> = std::result::Result<T, Error>;

@@ -5,6 +5,7 @@ use std::convert::TryFrom;
 use wasm_bindgen::{JsCast, JsValue, UnwrapThrowExt};
 
 use super::{static_str_to_js, Error, ObjectExt, Result};
+use crate::{PreserveJsValue, NEXT_PRESERVE};
 
 /// Provides [`de::SeqAccess`] from any JS iterator.
 struct SeqAccess {
@@ -249,11 +250,25 @@ impl Deserializer {
     }
 }
 
+struct GetVisitorExpecting<'a, T>(&'a T);
+impl<'de, 'a, V: de::Visitor<'de>> std::fmt::Display for GetVisitorExpecting<'a, V> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.expecting(f)
+    }
+}
+
 impl<'de> de::Deserializer<'de> for Deserializer {
     type Error = Error;
 
     fn deserialize_any<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        if self.is_nullish() {
+        let expecting = format!("{}", GetVisitorExpecting(&visitor));
+        if expecting == "struct PreserveJsValue" {
+            NEXT_PRESERVE
+                .lock()
+                .unwrap()
+                .replace(PreserveJsValue(self.value.clone()));
+            visitor.visit_i64(0)
+        } else if self.is_nullish() {
             // Ideally we would only treat `undefined` as `()` / `None` which would be semantically closer
             // to JS definitions, but, unfortunately, WebIDL generates missing values as `null`
             // and we probably want to support these as well.

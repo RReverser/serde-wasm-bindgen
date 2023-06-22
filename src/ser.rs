@@ -4,6 +4,7 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
 use super::{static_str_to_js, Error, ObjectExt};
+use crate::preserve::NEXT_PRESERVE;
 
 type Result<T = JsValue> = super::Result<T>;
 
@@ -313,6 +314,10 @@ impl<'s> ser::Serializer for &'s Serializer {
     }
 
     fn serialize_i64(self, v: i64) -> Result {
+        if let Some(value) = NEXT_PRESERVE.lock().unwrap().take() {
+            return Ok(value.0);
+        }
+
         if self.serialize_large_number_types_as_bigints {
             return Ok(v.into());
         }
