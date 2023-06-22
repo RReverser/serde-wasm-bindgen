@@ -5,6 +5,17 @@ use serde::{
 use std::{fmt, sync::Mutex};
 use wasm_bindgen::JsValue;
 
+/// This type is used to preserve a [`JsValue`] when serializing and deserializing.
+///
+/// ```rust
+/// #[derive(Serialize, Deserialize)]
+/// struct MyStruct {
+///    // works with objects from wasm-bindgen; they just need to implement From<JsValue> and Into<JsValue>
+///    my_value: PreserveJsValue<ObjectFromWasmBindgen>,
+///    // and with raw JsValue values
+///    my_other_value: PreserveJsValue<JsValue>,
+/// }
+/// ```
 #[derive(Clone, Debug, PartialEq)]
 pub struct PreserveJsValue<T: From<JsValue> + Into<JsValue> + Clone>(pub T);
 
