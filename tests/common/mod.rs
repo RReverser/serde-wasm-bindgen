@@ -4,7 +4,7 @@ use proptest::prelude::*;
 use serde::de::DeserializeOwned;
 use serde::ser::Error as SerError;
 use serde::{Deserialize, Serialize};
-use serde_wasm_bindgen::{from_value, to_value, Error, Serializer};
+use serde_wasm_bindgen::{from_value, to_value, Error, PreserveJsValue, Serializer};
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -818,4 +818,18 @@ fn serde_default_fields() {
 
     // Check that it parses successfully despite the missing field.
     let _struct: Struct = from_value(obj).unwrap();
+}
+
+#[wasm_bindgen_test]
+fn preser_js_value() {
+    #[derive(Serialize, Deserialize)]
+    struct Test {
+        value: PreserveJsValue<JsValue>,
+    }
+    let input = Test {
+        value: PreserveJsValue(JsValue::TRUE),
+    };
+    let js = to_value(&input).unwrap();
+    let output: Test = from_value(js).unwrap();
+    assert!(output.value.0.is_truthy());
 }
