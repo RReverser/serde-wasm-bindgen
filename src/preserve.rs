@@ -5,32 +5,40 @@ use serde::{
 use std::{fmt, sync::Mutex};
 use wasm_bindgen::JsValue;
 
-#[derive(Debug, Clone)]
-pub struct PreserveJsValue(pub JsValue);
-unsafe impl Send for PreserveJsValue {}
-unsafe impl Sync for PreserveJsValue {}
+#[derive(Clone)]
+pub struct PreserveJsValue<T: From<JsValue> + Into<JsValue> + Clone>(pub T);
 
-pub(crate) static NEXT_PRESERVE: Mutex<Option<PreserveJsValue>> = Mutex::new(None);
+#[derive(Clone)]
+pub(crate) struct JsValueKeeper(pub JsValue);
+unsafe impl Send for JsValueKeeper {}
+unsafe impl Sync for JsValueKeeper {}
 
-impl Serialize for PreserveJsValue {
+pub(crate) static NEXT_PRESERVE: Mutex<Option<JsValueKeeper>> = Mutex::new(None);
+
+impl<T: From<JsValue> + Into<JsValue> + Clone> Serialize for PreserveJsValue<T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        NEXT_PRESERVE.lock().unwrap().replace(self.clone());
+        NEXT_PRESERVE
+            .lock()
+            .unwrap()
+            .replace(JsValueKeeper(self.0.clone().into()));
         serializer.serialize_i64(0)
     }
 }
 
-impl<'de> Deserialize<'de> for PreserveJsValue {
+impl<'de, T: From<JsValue> + Into<JsValue> + Clone> Deserialize<'de> for PreserveJsValue<T> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        struct JsValueVisitor;
+        struct JsValueVisitor<T: From<JsValue> + Into<JsValue> + Clone>(
+            std::marker::PhantomData<T>,
+        );
 
-        impl<'de> Visitor<'de> for JsValueVisitor {
-            type Value = PreserveJsValue;
+        impl<'de, T: From<JsValue> + Into<JsValue> + Clone> Visitor<'de> for JsValueVisitor<T> {
+            type Value = PreserveJsValue<T>;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
                 formatter.write_str("struct PreserveJsValue")
@@ -40,10 +48,12 @@ impl<'de> Deserialize<'de> for PreserveJsValue {
             where
                 E: de::Error,
             {
-                Ok(NEXT_PRESERVE.lock().unwrap().take().unwrap())
+                Ok(PreserveJsValue(
+                    NEXT_PRESERVE.lock().unwrap().take().unwrap().0.into(),
+                ))
             }
         }
 
-        deserializer.deserialize_i64(JsValueVisitor)
+        deserializer.deserialize_i64(JsValueVisitor(std::marker::PhantomData))
     }
 }

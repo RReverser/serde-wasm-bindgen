@@ -5,7 +5,7 @@ use std::convert::TryFrom;
 use wasm_bindgen::{JsCast, JsValue, UnwrapThrowExt};
 
 use super::{static_str_to_js, Error, ObjectExt, Result};
-use crate::{PreserveJsValue, NEXT_PRESERVE};
+use crate::{JsValueKeeper, NEXT_PRESERVE};
 
 /// Provides [`de::SeqAccess`] from any JS iterator.
 struct SeqAccess {
@@ -266,7 +266,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
             NEXT_PRESERVE
                 .lock()
                 .unwrap()
-                .replace(PreserveJsValue(self.value.clone()));
+                .replace(JsValueKeeper(self.value.clone()));
             visitor.visit_i64(0)
         } else if self.is_nullish() {
             // Ideally we would only treat `undefined` as `()` / `None` which would be semantically closer
