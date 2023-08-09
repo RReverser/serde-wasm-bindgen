@@ -18,6 +18,11 @@ use wasm_bindgen::JsValue;
 /// ```
 #[derive(Clone, Debug, PartialEq)]
 pub struct PreserveJsValue<T: From<JsValue> + Into<JsValue> + Clone>(pub T);
+impl<T: From<JsValue> + Into<JsValue> + Clone> From<T> for PreserveJsValue<T> {
+    fn from(value: T) -> Self {
+        Self(value)
+    }
+}
 
 #[derive(Clone)]
 pub(crate) struct JsValueKeeper(pub JsValue);
