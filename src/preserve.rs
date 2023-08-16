@@ -23,6 +23,11 @@ impl<T: From<JsValue> + Into<JsValue> + Clone> From<T> for PreserveJsValue<T> {
         Self(value)
     }
 }
+impl<T: From<JsValue> + Into<JsValue> + Clone + Default> Default for PreserveJsValue<T> {
+    fn default() -> Self {
+        Self(T::default())
+    }
+}
 
 #[derive(Clone)]
 pub(crate) struct JsValueKeeper(pub JsValue);
