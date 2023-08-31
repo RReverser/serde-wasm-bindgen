@@ -1,8 +1,8 @@
+use crate::SPECIAL_DATE_PREFIX;
 use js_sys::{Array, JsString, Map, Number, Object, Uint8Array};
 use serde::ser::{self, Error as _, Serialize};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use crate::SPECIAL_DATE_PREFIX;
 
 use super::{static_str_to_js, Error, ObjectExt};
 
@@ -311,8 +311,6 @@ impl<'s> ser::Serializer for &'s Serializer {
         serialize_f64(f64);
     }
 
-
-
     fn serialize_i64(self, v: i64) -> Result {
         if self.serialize_large_number_types_as_bigints {
             return Ok(v.into());
@@ -482,7 +480,7 @@ impl<'s> ser::Serializer for &'s Serializer {
                     let date = js_sys::Date::new(&v.into());
                     Ok(date.into())
                 }
-                None => Ok(v.into())
+                None => Ok(v.into()),
             }
         } else {
             Ok(v.into())

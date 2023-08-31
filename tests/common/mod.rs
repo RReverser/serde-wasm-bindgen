@@ -830,11 +830,18 @@ fn dates_are_serialized_as_strings() {
     let mut value: serde_json::Value = from_value(value).unwrap();
 
     let obj = value.as_object_mut().unwrap();
-    obj.insert("anotherValue".to_string(), serde_json::Value::String("something".to_string()));
-    assert!(obj.get("date").unwrap().as_str().unwrap().starts_with("$::date:"));
+    obj.insert(
+        "anotherValue".to_string(),
+        serde_json::Value::String("something".to_string()),
+    );
+    assert!(obj
+        .get("date")
+        .unwrap()
+        .as_str()
+        .unwrap()
+        .starts_with("$::date:"));
 
     let to_value = value.serialize(&Serializer::json_compatible()).unwrap();
     let date = js_sys::Reflect::get(&to_value, &"date".into()).unwrap();
     assert!(date.dyn_into::<js_sys::Date>().is_ok())
-
 }
