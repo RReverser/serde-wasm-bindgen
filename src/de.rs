@@ -1,8 +1,9 @@
-use js_sys::{Array, ArrayBuffer, JsString, Number, Object, Symbol, Uint8Array};
+use js_sys::{Array, ArrayBuffer, Date, JsString, Number, Object, Symbol, Uint8Array};
 use serde::de::value::{MapDeserializer, SeqDeserializer};
 use serde::de::{self, IntoDeserializer};
 use std::convert::TryFrom;
 use wasm_bindgen::{JsCast, JsValue, UnwrapThrowExt};
+use crate::SPECIAL_DATE_PREFIX;
 
 use super::{static_str_to_js, Error, ObjectExt, Result};
 
@@ -291,7 +292,19 @@ impl<'de> de::Deserializer<'de> for Deserializer {
             // https://github.com/serde-rs/serde/issues/1183 is implemented / fixed on serde side.
             !Symbol::iterator().js_in(&self.value)
         {
-            self.deserialize_map(visitor)
+            // `Date` gets deserialized to an empty object, which is pretty useless.
+            // special case to be an ISO string
+            if cfg!(feature = "special-dates") {
+                match self.value.dyn_ref::<Date>() {
+                    Some(date) => {
+                        let iso_string = date.to_iso_string().as_string().expect_throw("to_iso_string returns a valid string");
+                        visitor.visit_string(format!("{}{}", SPECIAL_DATE_PREFIX, iso_string))
+                    }
+                    None => self.deserialize_map(visitor)
+                }
+            } else {
+                self.deserialize_map(visitor)
+            }
         } else {
             self.invalid_type(visitor)
         }

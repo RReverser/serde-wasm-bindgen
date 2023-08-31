@@ -44,3 +44,6 @@ debug = true
 
 [patch.crates-io]
 proptest = { git = "https://github.com/RReverser/proptest", branch = "fix-wasm" }
+
+[features]
+special-dates = []

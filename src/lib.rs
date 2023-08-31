@@ -13,6 +13,8 @@ pub use de::Deserializer;
 pub use error::Error;
 pub use ser::Serializer;
 
+pub(crate) const SPECIAL_DATE_PREFIX: &str = "$::date:";
+
 type Result<T> = std::result::Result<T, Error>;
 
 fn static_str_to_js(s: &'static str) -> JsString {

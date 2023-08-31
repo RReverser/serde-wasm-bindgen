@@ -2,6 +2,7 @@ use js_sys::{Array, JsString, Map, Number, Object, Uint8Array};
 use serde::ser::{self, Error as _, Serialize};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
+use crate::SPECIAL_DATE_PREFIX;
 
 use super::{static_str_to_js, Error, ObjectExt};
 
@@ -308,9 +309,9 @@ impl<'s> ser::Serializer for &'s Serializer {
 
         serialize_f32(f32);
         serialize_f64(f64);
-
-        serialize_str(&str);
     }
+
+
 
     fn serialize_i64(self, v: i64) -> Result {
         if self.serialize_large_number_types_as_bigints {
@@ -472,5 +473,19 @@ impl<'s> ser::Serializer for &'s Serializer {
             variant,
             self.serialize_struct(variant, len)?,
         ))
+    }
+
+    fn serialize_str(self, v: &str) -> Result {
+        if cfg!(feature = "special-dates") {
+            match v.strip_prefix(SPECIAL_DATE_PREFIX) {
+                Some(v) => {
+                    let date = js_sys::Date::new(&v.into());
+                    Ok(date.into())
+                }
+                None => Ok(v.into())
+            }
+        } else {
+            Ok(v.into())
+        }
     }
 }
