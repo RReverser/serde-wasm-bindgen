@@ -647,6 +647,42 @@ fn enums() {
 }
 
 #[wasm_bindgen_test]
+fn preserved_value() {
+    #[derive(serde::Deserialize, serde::Serialize, PartialEq, Clone, Debug)]
+    #[serde(bound = "T: JsCast")]
+    struct PreservedValue<T: JsCast>(#[serde(with = "serde_wasm_bindgen::preserve")] T);
+
+    test_via_into(PreservedValue(JsValue::from_f64(42.0)), 42);
+    test_via_into(PreservedValue(JsValue::from_str("hello")), "hello");
+
+    let res: PreservedValue<JsValue> = from_value(JsValue::from_f64(42.0)).unwrap();
+    assert_eq!(res.0.as_f64(), Some(42.0));
+
+    // Check that object identity is preserved.
+    let big_array = js_sys::Int8Array::new_with_length(64);
+    let val = PreservedValue(big_array);
+    let res = to_value(&val).unwrap();
+    assert_eq!(res, JsValue::from(val.0));
+
+    // The JsCasts are checked on deserialization.
+    let bool = js_sys::Boolean::from(true);
+    let serialized = to_value(&PreservedValue(bool)).unwrap();
+    let res: Result<PreservedValue<Number>, _> = from_value(serialized);
+    assert_eq!(
+        res.unwrap_err().to_string(),
+        Error::custom("incompatible JS value JsValue(true) for type js_sys::Number").to_string()
+    );
+
+    // serde_json must fail to round-trip our special wrapper
+    let s = serde_json::to_string(&PreservedValue(JsValue::from_f64(42.0))).unwrap();
+    serde_json::from_str::<PreservedValue<JsValue>>(&s).unwrap_err();
+
+    // bincode must fail to round-trip our special wrapper
+    let s = bincode::serialize(&PreservedValue(JsValue::from_f64(42.0))).unwrap();
+    bincode::deserialize::<PreservedValue<JsValue>>(&s).unwrap_err();
+}
+
+#[wasm_bindgen_test]
 fn structs() {
     #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
     struct Unit;

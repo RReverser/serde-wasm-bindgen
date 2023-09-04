@@ -2,9 +2,11 @@ use js_sys::{Array, ArrayBuffer, JsString, Number, Object, Symbol, Uint8Array};
 use serde::de::value::{MapDeserializer, SeqDeserializer};
 use serde::de::{self, IntoDeserializer};
 use std::convert::TryFrom;
+use wasm_bindgen::convert::IntoWasmAbi;
 use wasm_bindgen::{JsCast, JsValue, UnwrapThrowExt};
 
-use super::{static_str_to_js, Error, ObjectExt, Result};
+use crate::preserve::PRESERVED_VALUE_MAGIC;
+use crate::{static_str_to_js, Error, ObjectExt, Result};
 
 /// Provides [`de::SeqAccess`] from any JS iterator.
 struct SeqAccess {
@@ -104,6 +106,37 @@ impl<'de> de::MapAccess<'de> for ObjectAccess {
 
     fn next_value_seed<V: de::DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value> {
         seed.deserialize(self.next_value.take().unwrap_throw())
+    }
+}
+
+enum PreservedValueAccess {
+    OnMagic(JsValue),
+    OnValue(JsValue),
+    Done,
+}
+
+impl<'de> de::SeqAccess<'de> for PreservedValueAccess {
+    type Error = Error;
+
+    fn next_element_seed<T: de::DeserializeSeed<'de>>(
+        &mut self,
+        seed: T,
+    ) -> Result<Option<T::Value>> {
+        // Temporary replacement to avoid borrow checker issues when moving out `JsValue`.
+        let this = std::mem::replace(self, Self::Done);
+        match this {
+            Self::OnMagic(value) => {
+                *self = Self::OnValue(value);
+                seed.deserialize(str_deserializer(PRESERVED_VALUE_MAGIC))
+                    .map(Some)
+            }
+            Self::OnValue(value) => seed
+                .deserialize(Deserializer {
+                    value: JsValue::from(value.into_abi()),
+                })
+                .map(Some),
+            Self::Done => Ok(None),
+        }
     }
 }
 
@@ -484,10 +517,13 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     /// Forwards to [`Self::deserialize_tuple`](#method.deserialize_tuple).
     fn deserialize_tuple_struct<V: de::Visitor<'de>>(
         self,
-        _name: &'static str,
+        name: &'static str,
         len: usize,
         visitor: V,
     ) -> Result<V::Value> {
+        if name == PRESERVED_VALUE_MAGIC {
+            return visitor.visit_seq(PreservedValueAccess::OnMagic(self.value));
+        }
         self.deserialize_tuple(len, visitor)
     }
 

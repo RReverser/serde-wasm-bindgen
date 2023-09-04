@@ -1,9 +1,11 @@
 use js_sys::{Array, JsString, Map, Number, Object, Uint8Array};
 use serde::ser::{self, Error as _, Serialize};
+use wasm_bindgen::convert::RefFromWasmAbi;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
-use super::{static_str_to_js, Error, ObjectExt};
+use crate::preserve::PRESERVED_VALUE_MAGIC;
+use crate::{static_str_to_js, Error, ObjectExt};
 
 type Result<T = JsValue> = super::Result<T>;
 
@@ -404,9 +406,16 @@ impl<'s> ser::Serializer for &'s Serializer {
 
     fn serialize_newtype_struct<T: ?Sized + Serialize>(
         self,
-        _name: &'static str,
+        name: &'static str,
         value: &T,
     ) -> Result {
+        if name == PRESERVED_VALUE_MAGIC {
+            let abi = value.serialize(self)?.unchecked_into_f64() as u32;
+            // `PreservedValueSerWrapper` gives us ABI of a reference to a `JsValue` that is
+            // guaranteed to be alive only during this call.
+            // We must clone it before giving away the value to the caller.
+            return Ok(unsafe { JsValue::ref_from_abi(abi) }.as_ref().clone());
+        }
         value.serialize(self)
     }
 
