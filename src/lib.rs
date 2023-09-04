@@ -110,22 +110,41 @@ pub mod preserve {
 
     // Some arbitrary string that no one will collide with unless they try.
     pub(crate) const PRESERVED_VALUE_MAGIC: &str = "1fc430ca-5b7f-4295-92de-33cf2b145d38";
-    pub(crate) const PRESERVED_VALUE_WARNING: &str =
-        "dont_serialize_except_with_serde_wasm_bindgen";
+
+    struct Magic;
+
+    impl<'de> serde::de::Deserialize<'de> for Magic {
+        fn deserialize<D: serde::de::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
+            struct Visitor;
+
+            impl<'de> serde::de::Visitor<'de> for Visitor {
+                type Value = Magic;
+
+                fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                    formatter.write_str("serde-wasm-bindgen's magic string")
+                }
+
+                fn visit_str<E: Error>(self, s: &str) -> Result<Self::Value, E> {
+                    if s == PRESERVED_VALUE_MAGIC {
+                        Ok(Magic)
+                    } else {
+                        Err(E::invalid_value(serde::de::Unexpected::Str(s), &self))
+                    }
+                }
+            }
+
+            de.deserialize_str(Visitor)
+        }
+    }
 
     #[derive(Serialize)]
     #[serde(rename = "1fc430ca-5b7f-4295-92de-33cf2b145d38")]
-    struct PreservedValueSerWrapper {
-        dont_serialize_except_with_serde_wasm_bindgen: bool,
-        abi: u32,
-    }
+    struct PreservedValueSerWrapper(u32);
 
+    // Intentionally asymmetrical wrapper to ensure that only serde-wasm-bindgen preserves roundtrip.
     #[derive(Deserialize)]
     #[serde(rename = "1fc430ca-5b7f-4295-92de-33cf2b145d38")]
-    struct PreservedValueDeWrapper {
-        #[serde(rename = "1fc430ca-5b7f-4295-92de-33cf2b145d38")]
-        abi: u32,
-    }
+    struct PreservedValueDeWrapper(Magic, u32);
 
     /// Serialize any `JsCast` value.
     ///
@@ -134,14 +153,10 @@ pub mod preserve {
     ///
     /// This function is compatible with the `serde(serialize_with)` derive annotation.
     pub fn serialize<S: serde::Serializer, T: JsCast>(val: &T, ser: S) -> Result<S::Ok, S::Error> {
-        // Since we don't own `val` we need to clone it. Otherwise serializing a JsValue
-        // will produce a second JsValue pointing to the same index in the wasm-bindgen heap,
-        // and whichever one is dropped first will leave the other one dangling.
-        PreservedValueSerWrapper {
-            dont_serialize_except_with_serde_wasm_bindgen: true,
-            abi: val.as_ref().clone().into_abi(),
-        }
-        .serialize(ser)
+        // It's responsibility of serde-wasm-bindgen's Serializer to clone the value.
+        // For all other serializers, using reference instead of cloning here will ensure that we don't
+        // create accidental leaks.
+        PreservedValueSerWrapper(val.as_ref().into_abi()).serialize(ser)
     }
 
     /// Deserialize any `JsCast` value.
@@ -161,7 +176,7 @@ pub mod preserve {
         // here, this may be incorrect but it shouldn't be UB because JsValues
         // are represented using indices into a JS-side (i.e. bounds-checked)
         // array.
-        let val: JsValue = unsafe { FromWasmAbi::from_abi(wrap.abi) };
+        let val: JsValue = unsafe { FromWasmAbi::from_abi(wrap.1) };
         val.dyn_into().map_err(|e| {
             D::Error::custom(format_args!(
                 "incompatible JS value {e:?} for type {}",
