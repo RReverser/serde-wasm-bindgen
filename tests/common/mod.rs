@@ -647,10 +647,13 @@ fn preserved_value() {
         Error::custom("incompatible JS value JsValue(true) for type js_sys::Number").to_string()
     );
 
-    // serde_json fails to round-trip
+    // serde_json must fail to round-trip our special wrapper
     let s = serde_json::to_string(&PreservedValue(JsValue::from_f64(42.0))).unwrap();
-    let val: Result<PreservedValue<JsValue>, _> = serde_json::from_str(&s);
-    assert!(val.is_err());
+    serde_json::from_str::<PreservedValue<JsValue>>(&s).unwrap_err();
+
+    // bincode must fail to round-trip our special wrapper
+    let s = bincode::serialize(&PreservedValue(JsValue::from_f64(42.0))).unwrap();
+    bincode::deserialize::<PreservedValue<JsValue>>(&s).unwrap_err();
 }
 
 #[wasm_bindgen_test]
