@@ -130,6 +130,25 @@ You can customize serialization from Rust to JavaScript by setting the following
 
 You can also use the `Serializer::json_compatible()` preset to create a JSON compatible serializer. It enables `serialize_missing_as_null`, `serialize_maps_as_objects`, and `serialize_bytes_as_arrays` under the hood.
 
+### Preserving JavaScript values
+
+Sometimes you want to preserve original JavaScript value instead of converting it into a Rust type. This is particularly useful for types that can't be converted without losing the data, such as [`Date`](https://docs.rs/js-sys/latest/js_sys/struct.Date.html), [`RegExp`](https://docs.rs/js-sys/latest/js_sys/struct.RegExp.html) or 3rd-party types.
+
+`serde_wasm_bindgen::preserve` allows you to do just that:
+
+```rust
+#[derive(Serialize, Deserialize)]
+pub struct Example {
+    pub regular_field: i32,
+
+    #[serde(with = "serde_wasm_bindgen::preserve")]
+    pub preserved_date: js_sys::Date,
+
+    #[serde(with = "serde_wasm_bindgen::preserve")]
+    pub preserved_arbitrary_value: JsValue,
+}
+```
+
 ## License
 
 Licensed under the MIT license. See the
