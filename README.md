@@ -149,6 +149,10 @@ pub struct Example {
 }
 ```
 
+## TypeScript support
+
+There's no built-in type generation in this crate, but you can [tsify](https://github.com/madonoharu/tsify) with the `js` feature which integrates with `serde-wasm-bindgen` under the hood. Aside from generating structural typings, it also allows to derive `IntoWasmAbi` / `FromWasmAbi` so that you don't have to write `from_value` / `to_value` by hand.
+
 ## License
 
 Licensed under the MIT license. See the
