@@ -608,7 +608,8 @@ fn enums() {
         Map(BTreeMap<A, B>),
         Bytes {
             #[serde(with = "serde_bytes")]
-            bytes: Vec<u8>,
+            serde_bytes: Vec<u8>,
+            raw: Vec<u8>,
         },
     }
 
@@ -647,7 +648,8 @@ fn enums() {
 
     test_via_round_trip_with_config(
         InternallyTagged::<(), ()>::Bytes {
-            bytes: vec![0, 1, 2],
+            serde_bytes: vec![0, 1, 2],
+            raw: vec![3, 4, 5],
         },
         &SERIALIZER,
     );
