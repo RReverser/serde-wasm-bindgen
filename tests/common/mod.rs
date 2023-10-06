@@ -598,9 +598,19 @@ fn enums() {
         A: Ord,
     {
         Unit,
-        Struct { a: A, b: B },
-        Sequence { seq: Vec<A> },
+        Struct {
+            a: A,
+            b: B,
+        },
+        Sequence {
+            seq: Vec<A>,
+        },
         Map(BTreeMap<A, B>),
+        Bytes {
+            #[serde(with = "serde_bytes")]
+            serde_bytes: Vec<u8>,
+            raw: Vec<u8>,
+        },
     }
 
     test_via_json(InternallyTagged::Unit::<(), ()>);
@@ -634,6 +644,14 @@ fn enums() {
             b: -10_i64,
         },
         &BIGINT_SERIALIZER,
+    );
+
+    test_via_round_trip_with_config(
+        InternallyTagged::<(), ()>::Bytes {
+            serde_bytes: vec![0, 1, 2],
+            raw: vec![3, 4, 5],
+        },
+        &SERIALIZER,
     );
 
     test_enum! {
