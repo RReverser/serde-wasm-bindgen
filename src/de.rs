@@ -311,12 +311,10 @@ impl<'de> de::Deserializer<'de> for Deserializer {
             visitor.visit_string(v)
         } else if Array::is_array(&self.value) {
             self.deserialize_seq(visitor)
-        } else if self.value.is_instance_of::<Uint8Array>()
-            || self.value.is_instance_of::<ArrayBuffer>()
-        {
+        } else if let Some(bytes) = self.as_bytes() {
             // We need to handle this here because serde uses `deserialize_any`
             // for internally tagged enums
-            self.deserialize_byte_buf(visitor)
+            visitor.visit_byte_buf(bytes)
         } else if self.value.is_object() &&
             // The only reason we want to support objects here is because serde uses
             // `deserialize_any` for internally tagged enums
