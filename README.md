@@ -1,6 +1,6 @@
 This is a native integration of [Serde](https://serde.rs/) with [wasm-bindgen](https://github.com/rustwasm/wasm-bindgen). It allows to convert Rust data types into native JavaScript types and vice versa.
 
-Initially this library was created as [an alternative implementation](https://github.com/rustwasm/wasm-bindgen/issues/1258) to the JSON-based Serde support built into the `wasm-bindgen` but, as of [recently](https://github.com/rustwasm/wasm-bindgen/pull/3031) `serde-wasm-bindgen` is the officially preferred approach. It provides much smaller code size overhead than JSON, and, in most common cases, provides much faster serialization/deserialization as well.
+Initially this library was created while working for [@Cloudflare](https://github.com/cloudflare) as [an alternative implementation](https://github.com/rustwasm/wasm-bindgen/issues/1258) to the JSON-based Serde support built into the `wasm-bindgen` but, [nowadays](https://github.com/rustwasm/wasm-bindgen/pull/3031) `serde-wasm-bindgen` is the officially preferred approach. It provides much smaller code size overhead than JSON, and, in most common cases, provides much faster serialization/deserialization as well.
 
 ## Usage
 
