@@ -318,7 +318,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
         } else if self.value.is_object() &&
             // The only reason we want to support objects here is because serde uses
             // `deserialize_any` for internally tagged enums
-            // (see https://github.com/cloudflare/serde-wasm-bindgen/pull/4#discussion_r352245020).
+            // (see https://github.com/RReverser/serde-wasm-bindgen/pull/4#discussion_r352245020).
             //
             // We expect such enums to be represented via plain JS objects, so let's explicitly
             // exclude Sets, Maps and any other iterables. These should be deserialized via concrete

@@ -160,5 +160,5 @@ There's no built-in type generation in this crate, but you can [tsify](https://g
 ## License
 
 Licensed under the MIT license. See the
-[LICENSE](https://github.com/cloudflare/serde-wasm-bindgen/blob/master/LICENSE)
+[LICENSE](https://github.com/RReverser/serde-wasm-bindgen/blob/master/LICENSE)
 file for details.
