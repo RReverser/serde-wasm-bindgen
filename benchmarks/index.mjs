@@ -15,7 +15,7 @@ const libs = (
     ].map(async dir => {
       try {
         const impl = await import(`./pkg/${dir}/serde_wasm_bindgen_benches.js`);
-        await impl.default(); // Init Wasm
+        // await impl.default(); // Init Wasm
         return { name: dir, impl };
       } catch (err) {
         console.warn(err);
