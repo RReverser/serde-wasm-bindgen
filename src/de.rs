@@ -245,10 +245,8 @@ impl Deserializer {
     }
 
     fn as_safe_integer(&self) -> Option<i64> {
-        if let Some(v) = self.value.as_f64() {
-            if Number::is_safe_integer(&self.value) {
-                return Some(v as i64);
-            }
+        if Number::is_safe_integer(&self.value) {
+            return Some(self.value.unchecked_into_f64() as i64);
         }
         None
     }
