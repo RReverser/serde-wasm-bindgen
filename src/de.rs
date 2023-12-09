@@ -161,7 +161,7 @@ impl<'de> de::EnumAccess<'de> for EnumAccess {
     }
 }
 
-/// A newtype that allows using any [`JsValue`] as a [`deserializer`].
+/// A newtype that allows using any [`JsValue`] as a [`de::Deserializer`].
 pub struct Deserializer {
     value: JsValue,
 }
