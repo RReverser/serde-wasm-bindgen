@@ -18,7 +18,7 @@ const libs = (
         // await impl.default(); // Init Wasm
         return { name: dir, impl };
       } catch (err) {
-        console.warn(err);
+        console.warn(err.toString());
         return null;
       }
     })
