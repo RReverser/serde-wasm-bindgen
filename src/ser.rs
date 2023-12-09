@@ -10,14 +10,15 @@ use crate::{static_str_to_js, Error, ObjectExt};
 type Result<T = JsValue> = super::Result<T>;
 
 /// Wraps other serializers into an enum tagged variant form.
-/// Uses {"Variant": ...payload...} for compatibility with serde-json.
+///
+/// Results in `{"Variant": ...payload...}` for compatibility with serde-json.
 pub struct VariantSerializer<S> {
     variant: &'static str,
     inner: S,
 }
 
 impl<S> VariantSerializer<S> {
-    pub const fn new(variant: &'static str, inner: S) -> Self {
+    const fn new(variant: &'static str, inner: S) -> Self {
         Self { variant, inner }
     }
 
@@ -64,6 +65,7 @@ impl<S: ser::SerializeStruct<Ok = JsValue, Error = Error>> ser::SerializeStructV
     }
 }
 
+/// Serializes Rust iterables and tuples into JS arrays.
 pub struct ArraySerializer<'s> {
     serializer: &'s Serializer,
     target: Array,
@@ -71,7 +73,7 @@ pub struct ArraySerializer<'s> {
 }
 
 impl<'s> ArraySerializer<'s> {
-    pub fn new(serializer: &'s Serializer) -> Self {
+    fn new(serializer: &'s Serializer) -> Self {
         Self {
             serializer,
             target: Array::new(),
@@ -126,6 +128,10 @@ pub enum MapResult {
     Object(Object),
 }
 
+/// Serializes Rust maps into JS `Map` or plain JS objects.
+///
+/// Plain JS objects are used if `serialize_maps_as_objects` is set to `true`,
+/// but then only string keys are supported.
 pub struct MapSerializer<'s> {
     serializer: &'s Serializer,
     target: MapResult,
@@ -182,6 +188,7 @@ impl ser::SerializeMap for MapSerializer<'_> {
     }
 }
 
+/// Serializes Rust structs into plain JS objects.
 pub struct ObjectSerializer<'s> {
     serializer: &'s Serializer,
     target: ObjectExt,
@@ -314,6 +321,11 @@ impl<'s> ser::Serializer for &'s Serializer {
         serialize_str(&str);
     }
 
+    /// Serializes `i64` into a `BigInt` or a JS number.
+    ///
+    /// If `serialize_large_number_types_as_bigints` is set to `false`,
+    /// `i64` is serialized as a JS number. But in this mode only numbers
+    /// within the safe integer range are supported.
     fn serialize_i64(self, v: i64) -> Result {
         if self.serialize_large_number_types_as_bigints {
             return Ok(v.into());
@@ -334,6 +346,11 @@ impl<'s> ser::Serializer for &'s Serializer {
         }
     }
 
+    /// Serializes `u64` into a `BigInt` or a JS number.
+    ///
+    /// If `serialize_large_number_types_as_bigints` is set to `false`,
+    /// `u64` is serialized as a JS number. But in this mode only numbers
+    /// within the safe integer range are supported.
     fn serialize_u64(self, v: u64) -> Result {
         if self.serialize_large_number_types_as_bigints {
             return Ok(v.into());
@@ -349,18 +366,24 @@ impl<'s> ser::Serializer for &'s Serializer {
         }
     }
 
+    /// Serializes `i128` into a `BigInt`.
     fn serialize_i128(self, v: i128) -> Result {
         Ok(JsValue::from(v))
     }
 
+    /// Serializes `u128` into a `BigInt`.
     fn serialize_u128(self, v: u128) -> Result {
         Ok(JsValue::from(v))
     }
 
+    /// Serializes `char` into a JS string.
     fn serialize_char(self, v: char) -> Result {
         Ok(JsString::from(v).into())
     }
 
+    /// Serializes `bytes` into a JS `Uint8Array` or a plain JS array.
+    ///
+    /// If `serialize_bytes_as_arrays` is set to `true`, bytes are serialized as plain JS arrays.
     fn serialize_bytes(self, v: &[u8]) -> Result {
         // Create a `Uint8Array` view into a Rust slice, and immediately copy it to the JS memory.
         //
@@ -374,14 +397,21 @@ impl<'s> ser::Serializer for &'s Serializer {
         }
     }
 
+    /// Serializes `None` into `undefined` or `null`.
+    ///
+    /// If `serialize_missing_as_null` is set to `true`, `None` is serialized as `null`.
     fn serialize_none(self) -> Result {
         self.serialize_unit()
     }
 
+    /// Serializes `Some(T)` as `T`.
     fn serialize_some<T: ?Sized + Serialize>(self, value: &T) -> Result {
         value.serialize(self)
     }
 
+    /// Serializes `()` into `undefined` or `null`.
+    ///
+    /// If `serialize_missing_as_null` is set to `true`, `()` is serialized as `null`.
     fn serialize_unit(self) -> Result {
         Ok(if self.serialize_missing_as_null {
             JsValue::NULL
@@ -390,11 +420,12 @@ impl<'s> ser::Serializer for &'s Serializer {
         })
     }
 
+    /// Serializes unit structs into `undefined` or `null`.
     fn serialize_unit_struct(self, _name: &'static str) -> Result {
         self.serialize_unit()
     }
 
-    /// For compatibility with serde-json, serialises unit variants as "Variant" strings.
+    /// For compatibility with serde-json, sserializes unit variants as "Variant" strings.
     fn serialize_unit_variant(
         self,
         _name: &'static str,
@@ -404,6 +435,7 @@ impl<'s> ser::Serializer for &'s Serializer {
         Ok(static_str_to_js(variant).into())
     }
 
+    /// Serializes newtype structs as their inner values.
     fn serialize_newtype_struct<T: ?Sized + Serialize>(
         self,
         name: &'static str,
@@ -419,6 +451,7 @@ impl<'s> ser::Serializer for &'s Serializer {
         value.serialize(self)
     }
 
+    /// Serializes newtype variants as their inner values.
     fn serialize_newtype_variant<T: ?Sized + Serialize>(
         self,
         _name: &'static str,
@@ -429,16 +462,18 @@ impl<'s> ser::Serializer for &'s Serializer {
         VariantSerializer::new(variant, self.serialize_newtype_struct(variant, value)?).end(Ok)
     }
 
-    /// Serialises any Rust iterable into a JS Array.
-    // TODO: Figure out if there is a way to detect and serialise `Set` differently.
+    /// Sserializes any Rust iterable as a JS Array.
+    // TODO: Figure out if there is a way to detect and sserialize `Set` differently.
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
         Ok(ArraySerializer::new(self))
     }
 
+    /// Sserializes Rust tuples as JS arrays.
     fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple> {
         self.serialize_seq(Some(len))
     }
 
+    /// Sserializes Rust tuple structs as JS arrays.
     fn serialize_tuple_struct(
         self,
         _name: &'static str,
@@ -447,6 +482,7 @@ impl<'s> ser::Serializer for &'s Serializer {
         self.serialize_tuple(len)
     }
 
+    /// Sserializes Rust tuple variants as `{"Variant": [ ...tuple... ]}`.
     fn serialize_tuple_variant(
         self,
         _name: &'static str,
@@ -460,16 +496,19 @@ impl<'s> ser::Serializer for &'s Serializer {
         ))
     }
 
-    /// Serialises Rust maps into JS `Map` or plain JS objects, depending on configuration of `serialize_maps_as_objects`.
+    /// Sserializes Rust maps into JS `Map` or plain JS objects.
+    ///
+    /// See [`MapSerializer`] for more details.
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
         Ok(MapSerializer::new(self, self.serialize_maps_as_objects))
     }
 
-    /// Serialises Rust typed structs into plain JS objects.
+    /// Sserializes Rust typed structs into plain JS objects.
     fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
         Ok(ObjectSerializer::new(self))
     }
 
+    /// Sserializes Rust struct-like variants into `{"Variant": { ...fields... }}`.
     fn serialize_struct_variant(
         self,
         _name: &'static str,
