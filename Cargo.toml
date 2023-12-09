@@ -44,3 +44,6 @@ debug = true
 
 [patch.crates-io]
 proptest = { git = "https://github.com/RReverser/proptest", branch = "fix-wasm" }
+
+[package.metadata.docs.rs]
+targets = ["wasm32-unknown-unknown"]
