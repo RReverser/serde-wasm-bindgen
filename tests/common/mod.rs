@@ -736,7 +736,7 @@ fn sequences() {
     test_via_json((100, "xyz".to_string(), true));
 
     // Sets are currently indistinguishable from other sequences for
-    // Serde sserializers, so this will become an array on the JS side.
+    // Serde serializers, so this will become an array on the JS side.
     test_via_json(hashset! {false, true});
 }
 

@@ -425,7 +425,7 @@ impl<'s> ser::Serializer for &'s Serializer {
         self.serialize_unit()
     }
 
-    /// For compatibility with serde-json, sserializes unit variants as "Variant" strings.
+    /// For compatibility with serde-json, serializes unit variants as "Variant" strings.
     fn serialize_unit_variant(
         self,
         _name: &'static str,
@@ -462,18 +462,18 @@ impl<'s> ser::Serializer for &'s Serializer {
         VariantSerializer::new(variant, self.serialize_newtype_struct(variant, value)?).end(Ok)
     }
 
-    /// Sserializes any Rust iterable as a JS Array.
-    // TODO: Figure out if there is a way to detect and sserialize `Set` differently.
+    /// Serializes any Rust iterable as a JS Array.
+    // TODO: Figure out if there is a way to detect and serialize `Set` differently.
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
         Ok(ArraySerializer::new(self))
     }
 
-    /// Sserializes Rust tuples as JS arrays.
+    /// Serializes Rust tuples as JS arrays.
     fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple> {
         self.serialize_seq(Some(len))
     }
 
-    /// Sserializes Rust tuple structs as JS arrays.
+    /// Serializes Rust tuple structs as JS arrays.
     fn serialize_tuple_struct(
         self,
         _name: &'static str,
@@ -482,7 +482,7 @@ impl<'s> ser::Serializer for &'s Serializer {
         self.serialize_tuple(len)
     }
 
-    /// Sserializes Rust tuple variants as `{"Variant": [ ...tuple... ]}`.
+    /// Serializes Rust tuple variants as `{"Variant": [ ...tuple... ]}`.
     fn serialize_tuple_variant(
         self,
         _name: &'static str,
@@ -496,19 +496,19 @@ impl<'s> ser::Serializer for &'s Serializer {
         ))
     }
 
-    /// Sserializes Rust maps into JS `Map` or plain JS objects.
+    /// Serializes Rust maps into JS `Map` or plain JS objects.
     ///
     /// See [`MapSerializer`] for more details.
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
         Ok(MapSerializer::new(self, self.serialize_maps_as_objects))
     }
 
-    /// Sserializes Rust typed structs into plain JS objects.
+    /// Serializes Rust typed structs into plain JS objects.
     fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
         Ok(ObjectSerializer::new(self))
     }
 
-    /// Sserializes Rust struct-like variants into `{"Variant": { ...fields... }}`.
+    /// Serializes Rust struct-like variants into `{"Variant": { ...fields... }}`.
     fn serialize_struct_variant(
         self,
         _name: &'static str,
