@@ -665,6 +665,18 @@ fn enums() {
 }
 
 #[wasm_bindgen_test]
+fn serde_json_value() {
+    test_via_round_trip_with_config(
+        serde_json::from_str::<serde_json::Value>("[0, \"foo\"]").unwrap(),
+        &SERIALIZER,
+    );
+    test_via_round_trip_with_config(
+        serde_json::from_str::<serde_json::Value>(r#"{"foo": "bar"}"#).unwrap(),
+        &SERIALIZER,
+    );
+}
+
+#[wasm_bindgen_test]
 fn preserved_value() {
     #[derive(serde::Deserialize, serde::Serialize, PartialEq, Clone, Debug)]
     #[serde(bound = "T: JsCast")]
