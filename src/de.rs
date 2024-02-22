@@ -65,7 +65,7 @@ impl<'de> de::MapAccess<'de> for MapAccess {
 
 struct ObjectAccess {
     obj: ObjectExt,
-    fields: std::iter::Enumerate<std::slice::Iter<'static, &'static str>>,
+    fields: std::slice::Iter<'static, &'static str>,
     next_value: Option<Deserializer>,
 }
 
@@ -73,10 +73,14 @@ impl ObjectAccess {
     fn new(obj: ObjectExt, fields: &'static [&'static str]) -> Self {
         Self {
             obj,
-            fields: fields.iter().enumerate(),
+            fields: fields.iter(),
             next_value: None,
         }
     }
+}
+
+fn str_deserializer(s: &str) -> de::value::StrDeserializer<Error> {
+    de::IntoDeserializer::into_deserializer(s)
 }
 
 impl<'de> de::MapAccess<'de> for ObjectAccess {
@@ -85,7 +89,7 @@ impl<'de> de::MapAccess<'de> for ObjectAccess {
     fn next_key_seed<K: de::DeserializeSeed<'de>>(&mut self, seed: K) -> Result<Option<K::Value>> {
         debug_assert!(self.next_value.is_none());
 
-        for (i, &field) in &mut self.fields {
+        for field in &mut self.fields {
             let js_field = static_str_to_js(field);
             let next_value = self.obj.get_with_ref_key(&js_field);
             // If this value is `undefined`, it might be actually a missing field;
@@ -93,12 +97,7 @@ impl<'de> de::MapAccess<'de> for ObjectAccess {
             let is_missing_field = next_value.is_undefined() && !js_field.js_in(&self.obj);
             if !is_missing_field {
                 self.next_value = Some(Deserializer::from(next_value));
-                // Serde can deserialize struct fields from their indices.
-                // Using them allows for more efficient deserialization as it
-                // avoids string comparisons.
-                return Ok(Some(seed.deserialize(
-                    de::IntoDeserializer::<Error>::into_deserializer(i),
-                )?));
+                return Ok(Some(seed.deserialize(str_deserializer(field))?));
             }
         }
 
@@ -128,10 +127,8 @@ impl<'de> de::SeqAccess<'de> for PreservedValueAccess {
         match this {
             Self::OnMagic(value) => {
                 *self = Self::OnValue(value);
-                seed.deserialize(de::IntoDeserializer::into_deserializer(
-                    PRESERVED_VALUE_MAGIC,
-                ))
-                .map(Some)
+                seed.deserialize(str_deserializer(PRESERVED_VALUE_MAGIC))
+                    .map(Some)
             }
             Self::OnValue(value) => seed
                 .deserialize(Deserializer {
