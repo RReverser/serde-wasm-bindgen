@@ -873,3 +873,15 @@ fn serde_default_fields() {
     // Check that it parses successfully despite the missing field.
     let _struct: Struct = from_value(obj).unwrap();
 }
+
+#[wasm_bindgen_test]
+fn field_aliases() {
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct Struct {
+        #[serde(alias = "b")]
+        a: i32,
+        c: i32,
+    }
+
+    test_via_round_trip_with_config(Struct { a: 42, c: 84 }, &SERIALIZER);
+}
