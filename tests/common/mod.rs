@@ -13,6 +13,8 @@ use wasm_bindgen_test::wasm_bindgen_test;
 
 const SERIALIZER: Serializer = Serializer::new();
 
+const JSON_SERIALIZER: Serializer = Serializer::json_compatible();
+
 const BIGINT_SERIALIZER: Serializer =
     Serializer::new().serialize_large_number_types_as_bigints(true);
 
@@ -665,7 +667,19 @@ fn enums() {
 }
 
 #[wasm_bindgen_test]
-fn serde_json_value() {
+fn serde_json_value_with_json() {
+    test_via_round_trip_with_config(
+        serde_json::from_str::<serde_json::Value>("[0, \"foo\"]").unwrap(),
+        &JSON_SERIALIZER,
+    );
+    test_via_round_trip_with_config(
+        serde_json::from_str::<serde_json::Value>(r#"{"foo": "bar"}"#).unwrap(),
+        &JSON_SERIALIZER,
+    );
+}
+
+#[wasm_bindgen_test]
+fn serde_json_value_with_default() {
     test_via_round_trip_with_config(
         serde_json::from_str::<serde_json::Value>("[0, \"foo\"]").unwrap(),
         &SERIALIZER,
