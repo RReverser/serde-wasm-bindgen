@@ -1,4 +1,4 @@
-use js_sys::{Array, ArrayBuffer, JsString, Number, Object, Uint8Array};
+use js_sys::{Array, ArrayBuffer, JsString, Map, Number, Object, Symbol, Uint8Array};
 use serde::de::value::{MapDeserializer, SeqDeserializer};
 use serde::de::{self, IntoDeserializer};
 use std::convert::TryFrom;
@@ -314,7 +314,22 @@ impl<'de> de::Deserializer<'de> for Deserializer {
             // We need to handle this here because serde uses `deserialize_any`
             // for internally tagged enums
             visitor.visit_byte_buf(bytes)
-        } else if self.value.is_object() {
+        } else if self.value.is_object() &&
+            // The only reason we want to support objects here is because serde uses
+            // `deserialize_any` for internally tagged enums
+            // (see https://github.com/RReverser/serde-wasm-bindgen/pull/4#discussion_r352245020).
+            //
+            // We expect such enums to be represented via plain JS objects, so let's explicitly
+            // exclude Sets and other iterables. These should be deserialized via concrete
+            // `deserialize_*` methods instead of us trying to guess the right target type.
+            //
+            // We still do support Map, so that the format described here stays a self-describing
+            // format: we happen to serialize to Map, and it is not ambiguous.
+            //
+            // Hopefully we can rid of these hacks altogether once
+            // https://github.com/serde-rs/serde/issues/1183 is implemented / fixed on serde side.
+            (!Symbol::iterator().js_in(&self.value) || self.value.has_type::<Map>())
+        {
             self.deserialize_map(visitor)
         } else {
             self.invalid_type(visitor)
