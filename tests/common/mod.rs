@@ -691,6 +691,29 @@ fn serde_json_value_with_default() {
 }
 
 #[wasm_bindgen_test]
+fn serde_json_value_with_js_value() {
+    let map = js_sys::Map::new();
+    map.set(&"a".into(), &"foo".into());
+    map.set(&"b".into(), &42.into());
+    map.set(&"c".into(), &JsValue::UNDEFINED);
+    map.set(&"d".into(), &JsValue::NULL);
+    let arr = js_sys::Array::new();
+    arr.set(0, JsValue::UNDEFINED);
+    arr.set(1, JsValue::NULL);
+    arr.set(2, JsValue::from_bool(true));
+    map.set(&"e".into(), &arr);
+
+    let obj = js_sys::Object::from_entries(&map).unwrap();
+    let obj_value: serde_json::Value = from_value(obj.clone().into()).unwrap();
+    let map_value: serde_json::Value = from_value(map.clone().into()).unwrap();
+    assert_eq!(map_value, obj_value);
+    assert_eq!(
+        js_sys::JSON::stringify(&obj).unwrap(),
+        serde_json::to_string(&obj_value).unwrap()
+    );
+}
+
+#[wasm_bindgen_test]
 fn preserved_value() {
     #[derive(serde::Deserialize, serde::Serialize, PartialEq, Clone, Debug)]
     #[serde(bound = "T: JsCast")]
