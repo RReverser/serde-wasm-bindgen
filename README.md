@@ -19,7 +19,7 @@ enabled, to allow your types to be serialized and deserialized with Serde.
 ```toml
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
-serde-wasm-bindgen = "0.4"
+serde-wasm-bindgen = "0.6"
 ```
 
 ### Derive the `Serialize` and `Deserialize` Traits
