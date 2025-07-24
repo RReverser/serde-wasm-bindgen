@@ -48,14 +48,19 @@ impl<'de> de::MapAccess<'de> for MapAccess {
     fn next_key_seed<K: de::DeserializeSeed<'de>>(&mut self, seed: K) -> Result<Option<K::Value>> {
         debug_assert!(self.next_value.is_none());
 
-        Ok(match self.iter.next().transpose()? {
-            Some(pair) => {
-                let (key, value) = convert_pair(pair);
-                self.next_value = Some(value);
-                Some(seed.deserialize(key)?)
+        let key_seed = loop {
+            match self.iter.next().transpose()? {
+                Some(pair) => {
+                    let Some((key, value)) = convert_pair(pair) else {
+                        continue;
+                    };
+                    self.next_value = Some(value);
+                    break Some(seed.deserialize(key)?);
+                }
+                None => break None,
             }
-            None => None,
-        })
+        };
+        Ok(key_seed)
     }
 
     fn next_value_seed<V: de::DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value> {
@@ -180,9 +185,14 @@ impl<'de> IntoDeserializer<'de, Error> for Deserializer {
 }
 
 /// Destructures a JS `[key, value]` pair into a tuple of [`Deserializer`]s.
-fn convert_pair(pair: JsValue) -> (Deserializer, Deserializer) {
+fn convert_pair(pair: JsValue) -> Option<(Deserializer, Deserializer)> {
     let pair = pair.unchecked_into::<Array>();
-    (pair.get(0).into(), pair.get(1).into())
+    let value = pair.get(1);
+    if value.is_undefined() {
+        None
+    } else {
+        Some((pair.get(0).into(), value.into()))
+    }
 }
 
 impl Deserializer {
@@ -553,7 +563,9 @@ impl<'de> de::Deserializer<'de> for Deserializer {
         match js_sys::try_iter(&self.value)? {
             Some(iter) => visitor.visit_map(MapAccess::new(iter)),
             None => match self.as_object_entries() {
-                Some(arr) => visitor.visit_map(MapDeserializer::new(arr.iter().map(convert_pair))),
+                Some(arr) => {
+                    visitor.visit_map(MapDeserializer::new(arr.iter().filter_map(convert_pair)))
+                }
                 None => self.invalid_type(visitor),
             },
         }
@@ -597,7 +609,12 @@ impl<'de> de::Deserializer<'de> for Deserializer {
                 return Err(de::Error::invalid_length(entries.length() as _, &"1"));
             }
             let entry = entries.get(0);
-            let (tag, payload) = convert_pair(entry);
+            let Some((tag, payload)) = convert_pair(entry) else {
+                return Err(de::Error::invalid_type(
+                    de::Unexpected::Unit,
+                    &"a single key-value pair",
+                ));
+            };
             EnumAccess { tag, payload }
         } else {
             return self.invalid_type(visitor);
