@@ -10,11 +10,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Install Rust
-        uses: hecrj/setup-rust-action@v1
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
+          target: wasm32-unknown-unknown
           components: clippy,rustfmt
       - name: Install wasm-pack
-        uses: jetli/wasm-pack-action@v0.3.0
+        uses: jetli/wasm-pack-action@v0.4.0
       - name: Run tests in Node.js
         run: wasm-pack test --node
       - name: Run tests in Chrome
