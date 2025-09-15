@@ -79,7 +79,7 @@ impl ObjectAccess {
     }
 }
 
-fn str_deserializer(s: &str) -> de::value::StrDeserializer<Error> {
+fn str_deserializer(s: &str) -> de::value::StrDeserializer<'_, Error> {
     de::IntoDeserializer::into_deserializer(s)
 }
 
