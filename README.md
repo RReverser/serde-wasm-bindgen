@@ -22,28 +22,22 @@ serde = { version = "1.0", features = ["derive"] }
 serde-wasm-bindgen = "0.6"
 ```
 
-### Derive the `Serialize` and `Deserialize` Traits
-
-Add `#[derive(Serialize, Deserialize)]` to your type. All of your type
-members must also be supported by Serde, i.e. their types must also implement
-the `Serialize` and `Deserialize` traits.
-
-Note that you don't need to use the `#[wasm_bindgen]` macro.
+### Rust usage
 
 ```rust
+use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
+use wasm_bindgen::prelude::*;
 
+// Add `#[derive(Serialize, Deserialize)]` to your types.
 #[derive(Serialize, Deserialize)]
 pub struct Example {
     pub field1: HashMap<u32, String>,
     pub field2: Vec<Vec<f32>>,
     pub field3: [f32; 4],
 }
-```
 
-### Send it to JavaScript with `serde_wasm_bindgen::to_value`
-
-```rust
+// Send values to JavaScript with `serde_wasm_bindgen::to_value`.
 #[wasm_bindgen]
 pub fn send_example_to_js() -> Result<JsValue, JsValue> {
     let mut field1 = HashMap::new();
@@ -57,11 +51,8 @@ pub fn send_example_to_js() -> Result<JsValue, JsValue> {
 
     Ok(serde_wasm_bindgen::to_value(&example)?)
 }
-```
 
-### Receive it from JavaScript with `serde_wasm_bindgen::from_value`
-
-```rust
+// Receive values from JavaScript with `serde_wasm_bindgen::from_value`.
 #[wasm_bindgen]
 pub fn receive_example_from_js(val: JsValue) -> Result<(), JsValue> {
     let example: Example = serde_wasm_bindgen::from_value(val)?;
@@ -72,7 +63,7 @@ pub fn receive_example_from_js(val: JsValue) -> Result<(), JsValue> {
 
 ### JavaScript Usage
 
-In the `JsValue` that JavaScript gets, `field1` will be a `Map<number, string>`,
+In the value received by JavaScript, `field1` will be a `Map<number, string>`,
 `field2` will be an `Array<Array<number>>`, and `field3` will be an `Array<number>`.
 
 ```js
@@ -141,6 +132,8 @@ Sometimes you want to preserve original JavaScript value instead of converting i
 `serde_wasm_bindgen::preserve` allows you to do just that:
 
 ```rust
+use serde::{Serialize, Deserialize};
+
 #[derive(Serialize, Deserialize)]
 pub struct Example {
     pub regular_field: i32,
@@ -149,7 +142,7 @@ pub struct Example {
     pub preserved_date: js_sys::Date,
 
     #[serde(with = "serde_wasm_bindgen::preserve")]
-    pub preserved_arbitrary_value: JsValue,
+    pub preserved_arbitrary_value: wasm_bindgen::JsValue,
 }
 ```
 
